@@ -11,11 +11,15 @@ import type {
 const BASE_URL = import.meta.env.VITE_HD4U_BASE_URL || "https://new3.hdhub4u.cl";
 const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL || "";
 const CORS_PROXY = import.meta.env.VITE_CORS_PROXY || "";
+const PROD_CORS_PROXY = !import.meta.env.DEV && !CORS_PROXY && !PROXY_BASE
+  ? "https://corsproxy.io/?url="
+  : "";
 
 function getFetchUrl(rawPath: string): string {
   if (rawPath.startsWith("http")) return rawPath;
   if (CORS_PROXY) return `${CORS_PROXY}${BASE_URL}${rawPath}`;
   if (PROXY_BASE) return `${PROXY_BASE}/api/hd4u${rawPath}`;
+  if (PROD_CORS_PROXY) return `${PROD_CORS_PROXY}${encodeURIComponent(BASE_URL + rawPath)}`;
   return `/api/hd4u${rawPath}`;
 }
 
