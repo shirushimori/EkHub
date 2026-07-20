@@ -1,0 +1,20 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/api/scraper/*"
+  to = "https://4khdhub.one/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/hd4u/*"
+  to = "https://new3.hdhub4u.cl/:splat"
+  status = 200
+  force = true
