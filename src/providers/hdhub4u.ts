@@ -9,11 +9,12 @@ import type {
 } from "../types/scraper";
 
 const BASE_URL = import.meta.env.VITE_HD4U_BASE_URL || "https://new3.hdhub4u.cl";
+const CORS_PROXY = import.meta.env.VITE_CORS_PROXY || "";
 
 function getFetchUrl(rawPath: string): string {
   if (rawPath.startsWith("http")) return rawPath;
-  if (import.meta.env.DEV) return `/api/hd4u${rawPath}`;
-  return `${BASE_URL}${rawPath}`;
+  if (CORS_PROXY) return `${CORS_PROXY}${BASE_URL}${rawPath}`;
+  return `/api/hd4u${rawPath}`;
 }
 
 async function fetchHtml(path: string): Promise<string> {

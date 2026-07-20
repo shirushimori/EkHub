@@ -9,11 +9,12 @@ import type {
 } from "../types/scraper";
 
 const BASE_URL = import.meta.env.VITE_SCRAPER_BASE_URL || "https://4khdhub.one";
+const CORS_PROXY = import.meta.env.VITE_CORS_PROXY || "";
 
 function getFetchUrl(rawPath: string): string {
   if (rawPath.startsWith("http")) return rawPath;
-  if (import.meta.env.DEV) return `/api/scraper${rawPath}`;
-  return `${BASE_URL}${rawPath}`;
+  if (CORS_PROXY) return `${CORS_PROXY}${BASE_URL}${rawPath}`;
+  return `/api/scraper${rawPath}`;
 }
 
 async function fetchHtml(path: string): Promise<string> {
