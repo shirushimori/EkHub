@@ -9,15 +9,11 @@ import type {
 } from "../types/scraper";
 
 const BASE_URL = import.meta.env.VITE_HD4U_BASE_URL || "https://new3.hdhub4u.cl";
-const PROXY_BASE = import.meta.env.VITE_PROXY_BASE_URL || "";
-const CORS_PROXY = import.meta.env.VITE_CORS_PROXY || "";
-const USE_ALLORIGINS = !import.meta.env.DEV && !CORS_PROXY && !PROXY_BASE;
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
 function getFetchUrl(rawPath: string): string {
   if (rawPath.startsWith("http")) return rawPath;
-  if (CORS_PROXY) return `${CORS_PROXY}${BASE_URL}${rawPath}`;
-  if (PROXY_BASE) return `${PROXY_BASE}/api/hd4u${rawPath}`;
-  if (USE_ALLORIGINS) return `https://api.allorigins.win/get?url=${encodeURIComponent(BASE_URL + rawPath)}`;
+  if (API_BASE) return `${API_BASE}/api/hd4u${rawPath}`;
   return `/api/hd4u${rawPath}`;
 }
 
@@ -28,10 +24,6 @@ async function fetchHtml(path: string): Promise<string> {
   if (!res.ok) {
     if (import.meta.env.DEV) console.error(`%c[hdhub4u] %c${res.status} ${res.statusText}: ${url}`, "color:#ff4444;font-weight:bold", "color:#888");
     throw new Error(`HDHub4u ${res.status}: ${res.statusText}`);
-  }
-  if (USE_ALLORIGINS) {
-    const json = await res.json();
-    return json.contents as string;
   }
   return res.text();
 }

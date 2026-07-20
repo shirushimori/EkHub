@@ -1,12 +1,11 @@
 {
-  "rewrites": [
-    {
-      "source": "/api/scraper/:path*",
-      "destination": "https://4khdhub.one/:path*"
-    },
-    {
-      "source": "/api/hd4u/:path*",
-      "destination": "https://new3.hdhub4u.cl/:path*"
-    }
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "routes": [
+    { "src": "/api/scraper/(.*)", "dest": "/api/scraper.py" },
+    { "src": "/api/hd4u/(.*)", "dest": "/api/hd4u.py" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
