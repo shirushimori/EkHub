@@ -458,6 +458,12 @@ export function parseDetailPage(html: string, slug: string): ScrapedDetail {
     trailerUrl,
     downloads,
     episodes,
+    screenshots: [],
+    watchLinks: [],
+    embeddedPlayerUrl: "",
+    director: "",
+    storyline: "",
+    review: "",
   };
 }
 

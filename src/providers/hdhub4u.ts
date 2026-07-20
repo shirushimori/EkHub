@@ -184,6 +184,7 @@ function parseMetadata(body: Element) {
   let genres = "";
   let language = "";
   let quality = "";
+  let director = "";
 
   for (const s of Array.from(strongEls)) {
     const label = s.textContent?.trim() || "";
@@ -197,12 +198,21 @@ function parseMetadata(body: Element) {
     else if (/Genre/i.test(label)) genres = value;
     else if (/Language/i.test(label)) language = value;
     else if (/Quality/i.test(label)) quality = value;
+    else if (/Director/i.test(label)) director = value;
   }
 
-  const knoDesc = body.querySelector(".kno-rdesc");
-  description = knoDesc?.textContent?.trim() || "";
+  const knoDescs = body.querySelectorAll(".kno-rdesc");
+  let storyline = "";
+  let review = "";
+  if (knoDescs.length > 0) {
+    storyline = knoDescs[0]?.textContent?.trim() || "";
+  }
+  if (knoDescs.length > 1) {
+    review = knoDescs[1]?.textContent?.trim() || "";
+  }
+  description = storyline;
 
-  return { imdbRating, stars, description, genres, language, quality };
+  return { imdbRating, stars, description, genres, language, quality, director, storyline, review };
 }
 
 // ── List Page Parser ──────────────────────────────────────
@@ -254,6 +264,45 @@ export function parseListPage(html: string): { items: ScrapedItem[]; totalPages:
 
 // ── Detail Page Parser ────────────────────────────────────
 
+function parseScreenshots(body: Element): string[] {
+  const imgs: string[] = [];
+  const h3s = body.querySelectorAll("h3");
+  for (const h3 of Array.from(h3s)) {
+    const links = h3.querySelectorAll("a");
+    for (const a of Array.from(links)) {
+      const img = a.querySelector("img");
+      const src = img?.getAttribute("src") || "";
+      if (src && /catimages\.|vlcsnap\.|screenshot|imgur|postimg/i.test(src)) {
+        imgs.push(src);
+      }
+    }
+  }
+  return imgs;
+}
+
+function parseWatchLinks(body: Element): { label: string; url: string }[] {
+  const links: { label: string; url: string }[] = [];
+  const h4s = body.querySelectorAll("h4");
+  for (const h4 of Array.from(h4s)) {
+    const text = h4.textContent || "";
+    if (!/watch|player/i.test(text)) continue;
+    const anchors = h4.querySelectorAll("a");
+    for (const a of Array.from(anchors)) {
+      const href = a.getAttribute("href") || "";
+      const label = a.textContent?.trim() || "";
+      if (href && label && /http/i.test(href)) {
+        links.push({ label, url: href });
+      }
+    }
+  }
+  return links;
+}
+
+function parseEmbeddedPlayer(doc: Document): string {
+  const iframe = doc.querySelector("iframe[src*='youtube'], iframe[src*='dailymotion'], iframe[src*='embed']");
+  return iframe?.getAttribute("src") || "";
+}
+
 export function parseDetailPage(html: string, slug: string): ScrapedDetail {
   const doc = parseHtml(html);
 
@@ -268,11 +317,15 @@ export function parseDetailPage(html: string, slug: string): ScrapedDetail {
   const poster = ogImg?.getAttribute("content") || "";
 
   const body = doc.querySelector("main.page-body");
-  const { imdbRating, stars, description, genres, language, quality } = body
+  const { imdbRating, stars, description, genres, language, quality, director, storyline, review } = body
     ? parseMetadata(body)
-    : { imdbRating: "", stars: "", description: "", genres: "", language: "", quality: "" };
+    : { imdbRating: "", stars: "", description: "", genres: "", language: "", quality: "", director: "", storyline: "", review: "" };
 
   const { downloads, episodes } = body ? parseDownloads(body) : { downloads: [], episodes: [] };
+
+  const screenshots = body ? parseScreenshots(body) : [];
+  const watchLinks = body ? parseWatchLinks(body) : [];
+  const embeddedPlayerUrl = parseEmbeddedPlayer(doc);
 
   const formatList = quality
     ? quality.split(/[,|]/).map((s) => s.trim()).filter(Boolean)
@@ -303,6 +356,12 @@ export function parseDetailPage(html: string, slug: string): ScrapedDetail {
     trailerUrl: "",
     downloads,
     episodes,
+    screenshots,
+    watchLinks,
+    embeddedPlayerUrl,
+    director,
+    storyline,
+    review,
   };
 }
 

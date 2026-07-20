@@ -86,6 +86,12 @@ export function scrapedToMovieDetail(d: ScrapedDetail, source: ScraperSource = "
     similar: [],
     downloads: d.downloads,
     episodeDownloads: d.episodes,
+    screenshots: d.screenshots,
+    watchLinks: d.watchLinks,
+    embeddedPlayerUrl: d.embeddedPlayerUrl,
+    director: d.director,
+    storyline: d.storyline,
+    review: d.review,
   };
 }
 

@@ -40,6 +40,12 @@ export interface MovieDetail extends ContentItem {
   recommendations: ContentItem[];
   similar: ContentItem[];
   downloads?: DownloadPack[];
+  screenshots?: string[];
+  watchLinks?: Array<{ label: string; url: string }>;
+  embeddedPlayerUrl?: string;
+  director?: string;
+  storyline?: string;
+  review?: string;
 }
 
 export interface TvDetail extends ContentItem {

@@ -37,6 +37,12 @@ export interface ScrapedDetail {
   trailerUrl: string;
   downloads: DownloadPack[];
   episodes: EpisodeDownload[];
+  screenshots: string[];
+  watchLinks: DownloadLink[];
+  embeddedPlayerUrl: string;
+  director: string;
+  storyline: string;
+  review: string;
 }
 
 export interface DownloadPack {

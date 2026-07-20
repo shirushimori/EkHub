@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router";
-import { ArrowLeft, Star, Play, ExternalLink, ChevronDown, Download, Globe } from "lucide-react";
+import { ArrowLeft, Star, Play, ExternalLink, ChevronDown, Download, Globe, X, Camera, BookOpen, MessageSquare } from "lucide-react";
 import { useContentStore } from "@/stores/contentStore";
 import { posterUrl, typeLabel, type MovieDetail } from "@/types/content";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -15,6 +15,7 @@ export default function DetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const { detail, detailSources, activeSource, loading, error, fetchDetail, switchSource } = useContentStore();
   const [showSourceDropdown, setShowSourceDropdown] = useState(false);
+  const [showPlayer, setShowPlayer] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -72,6 +73,12 @@ export default function DetailPage() {
   const episodeDownloads = d.episodeDownloads;
   const hasDownloads = (downloads && downloads.length > 0) || (episodeDownloads && episodeDownloads.length > 0);
   const uniqueGenres = Array.from(new Set(d.genres));
+  const screenshots = movieDetail?.screenshots || [];
+  const watchLinks = movieDetail?.watchLinks || [];
+  const embeddedPlayerUrl = movieDetail?.embeddedPlayerUrl || "";
+  const director = movieDetail?.director || "";
+  const storyline = movieDetail?.storyline || "";
+  const review = movieDetail?.review || "";
 
   return (
     <div className="select-none mx-auto max-w-7xl px-4 py-6 md:px-8">
@@ -82,6 +89,28 @@ export default function DetailPage() {
         <ArrowLeft className="h-4 w-4" />
         Back
       </Link>
+
+      {/* Embedded Player Overlay */}
+      {showPlayer && embeddedPlayerUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setShowPlayer(false)}>
+          <div className="relative w-full max-w-4xl px-4" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setShowPlayer(false)}
+              className="absolute -top-10 right-0 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="aspect-video overflow-hidden rounded-xl bg-black shadow-2xl">
+              <iframe
+                src={embeddedPlayerUrl}
+                className="h-full w-full"
+                allowFullScreen
+                allow="autoplay; encrypted-media"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 3-column: Poster | Info | Downloads panel */}
       <div className="grid gap-6 md:grid-cols-[280px_1fr] lg:grid-cols-[280px_1fr_320px]">
@@ -102,7 +131,7 @@ export default function DetailPage() {
             {d.title}
           </h1>
 
-          {/* Source Selector - show when multiple sources available */}
+          {/* Source Selector */}
           {detailSources.length > 1 && (
             <div className="mb-4 relative" ref={dropdownRef}>
               <button
@@ -113,7 +142,7 @@ export default function DetailPage() {
                 <span>Source: {detailSources.find((s) => s.source === activeSource)?.label || "Unknown"}</span>
                 <ChevronDown className={`h-4 w-4 text-secondary transition-transform ${showSourceDropdown ? "rotate-180" : ""}`} />
               </button>
-              
+
               {showSourceDropdown && (
                 <div className="absolute z-50 mt-1 w-48 rounded-lg border border-border bg-card shadow-lg">
                   {detailSources.map((s) => (
@@ -142,7 +171,7 @@ export default function DetailPage() {
             <p className="mb-3 italic text-secondary">{d.tagline}</p>
           )}
 
-          {/* Meta row: year, rating, type, season */}
+          {/* Meta row */}
           <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-secondary">
             {d.year && <span>{d.year}</span>}
             {d.rating != null && (
@@ -153,6 +182,7 @@ export default function DetailPage() {
             )}
             <span>{typeLabel(d.type)}</span>
             {d.seasonInfo && <span>{d.seasonInfo}</span>}
+            {director && <span>Dir: {director}</span>}
           </div>
 
           {/* Quality badges */}
@@ -179,6 +209,33 @@ export default function DetailPage() {
                 >
                   {g}
                 </span>
+              ))}
+            </div>
+          )}
+
+          {/* Watch Now Buttons */}
+          {(embeddedPlayerUrl || watchLinks.length > 0) && (
+            <div className="mb-6 flex flex-wrap gap-3">
+              {embeddedPlayerUrl && (
+                <button
+                  onClick={() => setShowPlayer(true)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+                >
+                  <Play className="h-4 w-4 fill-white" />
+                  Watch Now
+                </button>
+              )}
+              {watchLinks.map((link, i) => (
+                <a
+                  key={i}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-6 py-3 text-sm font-medium text-primary backdrop-blur-sm transition-colors hover:bg-white/20"
+                >
+                  <Play className="h-4 w-4" />
+                  {link.label}
+                </a>
               ))}
             </div>
           )}
@@ -217,7 +274,61 @@ export default function DetailPage() {
             </div>
           )}
 
-          {/* Downloads - mobile: below info */}
+          {/* Screenshots */}
+          {screenshots.length > 0 && (
+            <div className="mb-6">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-secondary">
+                <Camera className="h-4 w-4" />
+                Screenshots
+              </h3>
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
+                {screenshots.map((src, i) => (
+                  <a
+                    key={i}
+                    href={src}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 overflow-hidden rounded-lg border border-border transition-colors hover:border-accent/50"
+                  >
+                    <img
+                      src={src}
+                      alt={`Screenshot ${i + 1}`}
+                      className="h-[130px] w-[230px] object-cover"
+                      loading="lazy"
+                    />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Storyline */}
+          {storyline && (
+            <div className="mb-6">
+              <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-secondary">
+                <BookOpen className="h-4 w-4" />
+                Storyline
+              </h3>
+              <p className="text-sm leading-relaxed text-secondary select-auto">
+                {storyline}
+              </p>
+            </div>
+          )}
+
+          {/* Review */}
+          {review && (
+            <div className="mb-6">
+              <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-secondary">
+                <MessageSquare className="h-4 w-4" />
+                Review
+              </h3>
+              <p className="text-sm leading-relaxed text-secondary select-auto">
+                {review}
+              </p>
+            </div>
+          )}
+
+          {/* Downloads - mobile */}
           {hasDownloads && (
             <div className="mt-6 lg:hidden">
               <DownloadSection downloads={downloads} episodeDownloads={episodeDownloads} />
@@ -225,7 +336,7 @@ export default function DetailPage() {
           )}
         </div>
 
-        {/* Downloads panel - desktop only, sticky */}
+        {/* Downloads panel - desktop */}
         {hasDownloads && (
           <div className="hidden lg:block">
             <div className="sticky top-20">
@@ -247,7 +358,6 @@ function DownloadSection({
   downloads?: DownloadPack[];
   episodeDownloads?: EpisodeDownload[];
 }) {
-  // Group downloads by season, then by format
   const seasonMap = new Map<string, Map<string, DownloadPack[]>>();
   for (const dl of downloads || []) {
     const season = dl.season || "default";
@@ -258,7 +368,6 @@ function DownloadSection({
     fmtMap.get(format)!.push(dl);
   }
 
-  // Group episodes by season, then by format
   const epSeasonMap = new Map<string, Map<string, EpisodeDownload[]>>();
   for (const ep of episodeDownloads || []) {
     const season = ep.season || "default";
@@ -275,7 +384,6 @@ function DownloadSection({
     .filter((s) => s !== "default")
     .sort();
 
-  // If no seasons at all, add "default"
   if (seasonKeys.length === 0 && (seasonMap.has("default") || epSeasonMap.has("default"))) {
     seasonKeys.push("default");
   }
@@ -307,7 +415,6 @@ function DownloadSection({
 
           return (
             <div key={season}>
-              {/* Season header */}
               {showSeasonHeader && (
                 <div className="border-b border-border bg-accent/5 px-4 py-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-accent">
@@ -316,17 +423,14 @@ function DownloadSection({
                 </div>
               )}
 
-              {/* Default packs (no format group) */}
               {hasDefaultPack && fmtMap!.get("default")!.map((dl, i) => (
                 <PackItem key={`p-${season}-${i}`} dl={dl} />
               ))}
 
-              {/* Default episodes (no format group) */}
               {hasDefaultEp && epFmtMap!.get("default")!.map((ep, i) => (
                 <EpisodeItem key={`e-${season}-${i}`} ep={ep} />
               ))}
 
-              {/* Format groups */}
               {formats.map((format) => (
                 <div key={format}>
                   <div className="border-b border-border/50 bg-surface/30 px-4 py-1.5">
@@ -335,12 +439,10 @@ function DownloadSection({
                     </span>
                   </div>
 
-                  {/* Packs in this format */}
                   {fmtMap?.get(format)?.map((dl, i) => (
                     <PackItem key={`p-${season}-${format}-${i}`} dl={dl} />
                   ))}
 
-                  {/* Episodes in this format */}
                   {epFmtMap?.get(format)?.map((ep, i) => (
                     <EpisodeItem key={`e-${season}-${format}-${i}`} ep={ep} />
                   ))}
