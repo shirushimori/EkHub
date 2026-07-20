@@ -10,10 +10,12 @@ import type {
 
 const BASE_URL = import.meta.env.VITE_HD4U_BASE_URL || "https://new3.hdhub4u.cl";
 const CORS_PROXY = import.meta.env.VITE_CORS_PROXY || "";
+const IS_STATIC = import.meta.env.MODE === "pages";
 
 function getFetchUrl(rawPath: string): string {
   if (rawPath.startsWith("http")) return rawPath;
-  if (CORS_PROXY) return `${CORS_PROXY}${BASE_URL}${rawPath}`;
+  const proxy = CORS_PROXY || (IS_STATIC && "https://corsproxy.io/?url=");
+  if (proxy) return `${proxy}${BASE_URL}${rawPath}`;
   return `/api/hd4u${rawPath}`;
 }
 
