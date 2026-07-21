@@ -14,7 +14,7 @@ function load(): SourceMode {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw === "hdhub4u" || raw === "4khdhub" || raw === "mix") return raw;
   } catch {}
-  return "hdhub4u";
+  return "mix";
 }
 
 function save(mode: SourceMode) {
