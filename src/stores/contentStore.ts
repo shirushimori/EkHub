@@ -8,16 +8,22 @@ type ContentDetail = MovieDetail | TvDetail;
 
 // ── Search Store ──────────────────────────────────────────────
 
+const PAGE_SIZE = 24;
+
 interface SearchState {
   query: string;
   type: ContentType | "";
   results: ContentItem[];
+  allResults: ContentItem[];
   totalResults: number;
   loading: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
   error: string | null;
   setQuery: (q: string) => void;
   setType: (t: ContentType | "") => void;
   search: () => Promise<void>;
+  loadMore: () => void;
   reset: () => void;
 }
 
@@ -25,18 +31,21 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   query: "",
   type: "",
   results: [],
+  allResults: [],
   totalResults: 0,
   loading: false,
+  loadingMore: false,
+  hasMore: false,
   error: null,
 
   setQuery: (query) => set({ query }),
-  setType: (type) => set({ type, results: [], totalResults: 0 }),
+  setType: (type) => set({ type, results: [], allResults: [], totalResults: 0 }),
 
   search: async () => {
     const { query, type } = get();
     if (!query.trim()) return;
 
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, results: [], allResults: [] });
 
     try {
       const allResults = await scraperService.search(query);
@@ -45,13 +54,28 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         ? allResults.filter((i) => i.type === type)
         : allResults;
 
+      const chunk = filtered.slice(0, PAGE_SIZE);
+
       set({
-        results: filtered,
+        allResults: filtered,
+        results: chunk,
         totalResults: filtered.length,
+        hasMore: filtered.length > PAGE_SIZE,
         loading: false,
       });
     } catch {
       set({ loading: false, error: "Failed to search" });
+    }
+  },
+
+  loadMore: () => {
+    const { results, allResults } = get();
+    const next = allResults.slice(results.length, results.length + PAGE_SIZE);
+    if (next.length > 0) {
+      set({
+        results: [...results, ...next],
+        hasMore: results.length + next.length < allResults.length,
+      });
     }
   },
 
@@ -60,8 +84,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       query: "",
       type: "",
       results: [],
+      allResults: [],
       totalResults: 0,
       loading: false,
+      loadingMore: false,
+      hasMore: false,
       error: null,
     }),
 }));
@@ -113,16 +140,16 @@ export const useContentStore = create<ContentState>((set, get) => ({
   fetchAll: async () => {
     set({ loading: true, error: null });
     try {
-      const homeItems = await scraperService.getHome();
+      const scraperItems = await scraperService.getHome();
 
-      const movies = homeItems.filter((i) => i.type === "movie");
-      const seriesItems = homeItems.filter((i) => i.type === "series");
+      const movies = scraperItems.filter((i) => i.type === "movie");
+      const seriesItems = scraperItems.filter((i) => i.type === "series");
 
       set({
-        trending: homeItems.slice(0, 20),
-        popular: homeItems.slice(0, 20),
-        topRated: homeItems.slice(10, 30),
-        recentlyAdded: homeItems.slice(0, 20),
+        trending: scraperItems.slice(0, 20),
+        popular: scraperItems.slice(0, 20),
+        topRated: scraperItems.slice(10, 30),
+        recentlyAdded: scraperItems.slice(0, 20),
         movies: movies.slice(0, 20),
         series: seriesItems.slice(0, 20),
         loading: false,

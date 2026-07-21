@@ -1,18 +1,17 @@
 import { Link } from "react-router";
-import { Bookmark, History, Settings } from "lucide-react";
+import { Bookmark } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const quickLinks = [
   { to: "/bookmarks", icon: Bookmark, label: "Bookmarks", color: "text-accent" },
-  { to: "/history", icon: History, label: "History", color: "text-success" },
-  { to: "/settings", icon: Settings, label: "Settings", color: "text-secondary" },
 ];
 
 export default function LibraryPage() {
   return (
     <div className="px-4 py-6 md:px-8">
       <h1 className="mb-1 text-2xl font-bold text-primary">Library</h1>
-      <p className="mb-6 text-sm text-secondary">Your personal collection</p>
+      <p className="mb-1 text-sm text-secondary">Your personal collection</p>
+      <p className="mb-6 text-xs text-secondary">Made by Vishnu and Pratik</p>
 
       <div className="mb-8 grid grid-cols-3 gap-3">
         {quickLinks.map(({ to, icon: Icon, label, color }) => (

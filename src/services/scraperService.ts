@@ -1,5 +1,6 @@
 import { scraper4khdhub } from "../providers/4khdhub";
 import { scraperHdHub4u } from "../providers/hdhub4u";
+import { scraperJikan } from "../providers/jikan";
 import { CATEGORIES, type ScrapedItem, type ScrapedDetail, type CategoryConfig, type ScraperSource } from "../types/scraper";
 import type { ContentItem, MovieDetail, TvDetail } from "../types/content";
 
@@ -27,6 +28,7 @@ export type ScraperProvider = {
 const PROVIDERS: Record<ScraperSource, ScraperProvider> = {
   "4khdhub": scraper4khdhub,
   "hdhub4u": scraperHdHub4u,
+  "jikan": scraperJikan,
 };
 
 // ── Bridge: ScrapedItem → ContentItem ──────────────────────
@@ -92,6 +94,8 @@ export function scrapedToMovieDetail(d: ScrapedDetail, source: ScraperSource = "
     director: d.director,
     storyline: d.storyline,
     review: d.review,
+    audioLanguages: d.audioLanguages,
+    printQuality: d.printQuality,
   };
 }
 
@@ -150,13 +154,15 @@ function getSourceForCategory(cat: CategoryConfig): ScraperSource {
 const SOURCE_LABELS: Record<ScraperSource, string> = {
   "4khdhub": "4KHDHub",
   "hdhub4u": "HDHub4u",
+  "jikan": "MyAnimeList",
 };
 
 export async function getHome(page?: number): Promise<ContentItem[]> {
-  logScraper(`getHome(page=${page ?? 1})`, "fetching from 4khdhub + hdhub4u...");
-  const [r1, r2] = await Promise.allSettled([
+  logScraper(`getHome(page=${page ?? 1})`, "fetching from 4khdhub + hdhub4u + jikan...");
+  const [r1, r2, r3] = await Promise.allSettled([
     PROVIDERS["4khdhub"].fetchHome(page),
     PROVIDERS["hdhub4u"].fetchHome(page),
+    PROVIDERS["jikan"].fetchHome(page),
   ]);
 
   const items: ContentItem[] = [];
@@ -171,6 +177,12 @@ export async function getHome(page?: number): Promise<ContentItem[]> {
     items.push(...r2.value.items.map((i) => scrapedToContentItem(i, "hdhub4u")));
   } else {
     logScraperError("getHome hdhub4u failed:", r2.reason);
+  }
+  if (r3.status === "fulfilled") {
+    logScraper("getHome jikan", `${r3.value.items.length} items`);
+    items.push(...r3.value.items.map((i) => scrapedToContentItem(i, "jikan")));
+  } else {
+    logScraperError("getHome jikan failed:", r3.reason);
   }
   logScraper("getHome total", `${items.length} items`);
   return items;
@@ -238,6 +250,13 @@ export async function getDetailMulti(slug: string): Promise<MultiDetailResult> {
   const prefix = slug.includes(":") ? slug.split(":")[0] : undefined;
   const cleanSlug = prefix ? slug.split(":").slice(1).join(":") : slug;
 
+  // For jikan, just return single source (no cross-source search)
+  if (prefix === "jikan") {
+    const detail = await PROVIDERS["jikan"].fetchDetail(`jikan:${cleanSlug}`);
+    const movieDetail = scrapedToMovieDetail(detail, "jikan");
+    return { primary: movieDetail, sources: [{ source: "jikan", label: SOURCE_LABELS["jikan"], detail: movieDetail }] };
+  }
+
   const primarySource = (prefix && prefix in PROVIDERS) ? prefix as ScraperSource : "4khdhub";
   const altSource = primarySource === "4khdhub" ? "hdhub4u" : "4khdhub";
 
@@ -245,7 +264,29 @@ export async function getDetailMulti(slug: string): Promise<MultiDetailResult> {
 
   const sources: SourceDetail[] = [];
 
-  // 1. Fetch detail from the primary source using its own slug
+  // 1. When no prefix, try BOTH providers directly with the same slug in parallel
+  if (!prefix) {
+    const [r1, r2] = await Promise.allSettled([
+      PROVIDERS["4khdhub"].fetchDetail(cleanSlug),
+      PROVIDERS["hdhub4u"].fetchDetail(cleanSlug),
+    ]);
+
+    for (const [src, result] of [["4khdhub", r1], ["hdhub4u", r2]] as const) {
+      if (result.status === "fulfilled") {
+        const d = result.value;
+        const detail = d.type === "series" ? scrapedToTvDetail(d, src) : scrapedToMovieDetail(d, src);
+        sources.push({ source: src, label: SOURCE_LABELS[src], detail });
+        logScraper(`getDetailMulti`, `${src} detail OK: "${d.title}"`);
+      } else {
+        logScraperError(`getDetailMulti ${src} detail failed:`, result.reason);
+      }
+    }
+
+    if (sources.length === 0) throw new Error(`Not found: ${cleanSlug}`);
+    return { primary: sources[0].detail, sources };
+  }
+
+  // 2. With explicit prefix, fetch from primary source first
   let primaryDetail: ScrapedDetail | null = null;
   try {
     logScraper(`getDetailMulti`, `fetching ${primarySource} detail for "${cleanSlug}"...`);
@@ -259,7 +300,7 @@ export async function getDetailMulti(slug: string): Promise<MultiDetailResult> {
     logScraperError(`getDetailMulti ${primarySource} detail failed for "${cleanSlug}":`, e);
   }
 
-  // 2. Search the alternate source by title to find a matching slug
+  // 3. Search the alternate source by title to find a matching slug
   if (primaryDetail?.title) {
     try {
       logScraper(`getDetailMulti`, `searching ${altSource} for "${primaryDetail.title}"...`);
@@ -292,10 +333,11 @@ export async function getDetailMulti(slug: string): Promise<MultiDetailResult> {
 }
 
 export async function search(query: string): Promise<ContentItem[]> {
-  logScraper(`search("${query}")`, "searching 4khdhub + hdhub4u...");
-  const [r1, r2] = await Promise.allSettled([
+  logScraper(`search("${query}")`, "searching 4khdhub + hdhub4u + jikan...");
+  const [r1, r2, r3] = await Promise.allSettled([
     PROVIDERS["4khdhub"].search(query),
     PROVIDERS["hdhub4u"].search(query),
+    PROVIDERS["jikan"].search(query),
   ]);
 
   const items: ContentItem[] = [];
@@ -310,6 +352,12 @@ export async function search(query: string): Promise<ContentItem[]> {
     items.push(...r2.value.map((i) => scrapedToContentItem(i, "hdhub4u")));
   } else {
     logScraperError("search hdhub4u failed:", r2.reason);
+  }
+  if (r3.status === "fulfilled") {
+    logScraper("search jikan", `${r3.value.length} results`);
+    items.push(...r3.value.map((i) => scrapedToContentItem(i, "jikan")));
+  } else {
+    logScraperError("search jikan failed:", r3.reason);
   }
   logScraper("search total", `${items.length} results`);
   return items;

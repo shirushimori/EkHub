@@ -1,7 +1,7 @@
 // Scraper Types (shared by 4KHDHub + HDHub4u providers)
 
 export type ContentType = "movie" | "series";
-export type ScraperSource = "4khdhub" | "hdhub4u";
+export type ScraperSource = "4khdhub" | "hdhub4u" | "jikan";
 
 export interface ScrapedItem {
   slug: string;
@@ -130,6 +130,26 @@ export const CATEGORIES_HDHUB4U: CategoryConfig[] = [
   { slug: "hd4u-netflix", label: "Netflix", type: "movie", path: "/category/netflix/", source: "hdhub4u" },
 ];
 
+// ── Jikan (Anime) Categories ─────────────────────────────────
+
+export const CATEGORIES_JIKAN: CategoryConfig[] = [
+  { slug: "anime-top", label: "Top Anime", type: "series", path: "/top/anime", source: "jikan" },
+  { slug: "anime-season", label: "Currently Airing", type: "series", path: "/seasons/now", source: "jikan" },
+  { slug: "anime-action", label: "Action Anime", type: "series", path: "/anime?genres=1", source: "jikan" },
+  { slug: "anime-comedy", label: "Comedy Anime", type: "series", path: "/anime?genres=4", source: "jikan" },
+  { slug: "anime-drama", label: "Drama Anime", type: "series", path: "/anime?genres=8", source: "jikan" },
+  { slug: "anime-fantasy", label: "Fantasy Anime", type: "series", path: "/anime?genres=10", source: "jikan" },
+  { slug: "anime-horror", label: "Horror Anime", type: "series", path: "/anime?genres=14", source: "jikan" },
+  { slug: "anime-mecha", label: "Mecha Anime", type: "series", path: "/anime?genres=18", source: "jikan" },
+  { slug: "anime-mystery", label: "Mystery Anime", type: "series", path: "/anime?genres=7", source: "jikan" },
+  { slug: "anime-romance", label: "Romance Anime", type: "series", path: "/anime?genres=22", source: "jikan" },
+  { slug: "anime-sci-fi", label: "Sci-Fi Anime", type: "series", path: "/anime?genres=24", source: "jikan" },
+  { slug: "anime-isekai", label: "Isekai Anime", type: "series", path: "/anime?genres=62", source: "jikan" },
+  { slug: "anime-sports", label: "Sports Anime", type: "series", path: "/anime?genres=30", source: "jikan" },
+  { slug: "anime-supernatural", label: "Supernatural", type: "series", path: "/anime?genres=37", source: "jikan" },
+  { slug: "anime-thriller", label: "Thriller Anime", type: "series", path: "/anime?genres=41", source: "jikan" },
+];
+
 // ── Combined ───────────────────────────────────────────────
 
-export const CATEGORIES: CategoryConfig[] = [...CATEGORIES_4KHDHUB, ...CATEGORIES_HDHUB4U];
+export const CATEGORIES: CategoryConfig[] = [...CATEGORIES_4KHDHUB, ...CATEGORIES_HDHUB4U, ...CATEGORIES_JIKAN];

@@ -7,22 +7,16 @@ import type {
   TmdbImageResponse,
   TmdbGenreResponse,
   TmdbTimeWindow,
+  TmdbWatchProvidersResponse,
 } from "../types/movie";
 
-const BASE_URL = import.meta.env.VITE_TMDB_BASE_URL || "https://api.themoviedb.org/3";
-const API_KEY = import.meta.env.VITE_TMDB_API_KEY || "";
-
-const HEADERS: Record<string, string> = API_KEY
-  ? { Authorization: `Bearer ${API_KEY}` }
-  : {};
+const TMDB_PROXY = "/api/tmdb";
 
 async function tmdbFetch<T>(path: string, params: Record<string, string> = {}): Promise<T> {
-  const url = new URL(`${BASE_URL}${path}`);
-  for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v);
-  }
+  const qs = new URLSearchParams(params).toString();
+  const url = `${TMDB_PROXY}${path}${qs ? `?${qs}` : ""}`;
 
-  const res = await fetch(url.toString(), { headers: HEADERS });
+  const res = await fetch(url);
 
   if (!res.ok) {
     if (res.status === 429) {
@@ -185,6 +179,30 @@ export async function getMovieGenres(): Promise<TmdbGenreResponse> {
   return data;
 }
 
+// ── Watch Providers ──────────────────────────────────────────
+
+export async function getMovieWatchProviders(id: number): Promise<TmdbWatchProvidersResponse> {
+  const key = `tmdb:watch_providers:${id}`;
+  const cached = cacheGet<TmdbWatchProvidersResponse>(key);
+  if (cached) return cached;
+
+  const data = await tmdbFetch<TmdbWatchProvidersResponse>(`/movie/${id}/watch_providers`);
+  cacheSet(key, data, CacheTTL.DAY);
+  return data;
+}
+
+// ── Trending TV ─────────────────────────────────────────────
+
+export async function getTrendingTv(window: TmdbTimeWindow = "week", page = 1): Promise<TmdbSearchResponse> {
+  const key = `tmdb:trending_tv:${window}:${page}`;
+  const cached = cacheGet<TmdbSearchResponse>(key);
+  if (cached) return cached;
+
+  const data = await tmdbFetch<TmdbSearchResponse>(`/trending/tv/${window}`, { page: String(page) });
+  cacheSet(key, data, CacheTTL.MEDIUM);
+  return data;
+}
+
 // ── Export a namespace object for backward compat ──────────
 
 export const tmdb = {
@@ -195,10 +213,12 @@ export const tmdb = {
   getUpcomingMovies,
   getNowPlayingMovies,
   getTrendingMovies,
+  getTrendingTv,
   getSimilarMovies,
   getRecommendations,
   getMovieCredits,
   getMovieVideos,
   getMovieImages,
   getMovieGenres,
+  getMovieWatchProviders,
 };

@@ -1,4 +1,4 @@
-import { Home, Compass, Film, Tv, Search, Library } from "lucide-react";
+import { Home, Film, Tv, Search, Library } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { cn } from "@/lib/cn";
 
@@ -8,7 +8,6 @@ interface BottomNavProps {
 
 const navItems = [
   { to: "/", icon: Home, label: "Home" },
-  { to: "/discover", icon: Compass, label: "Discover" },
   { to: "/movies", icon: Film, label: "Movies" },
   { to: "/series", icon: Tv, label: "Series" },
   { to: "__search", icon: Search, label: "Search" },

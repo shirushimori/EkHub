@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "react-router";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, ChevronDown } from "lucide-react";
 import { PosterCard } from "@/components/cards/PosterCard";
 import { Chip } from "@/components/ui/Chip";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -23,10 +23,13 @@ export default function SearchPage() {
     results,
     totalResults,
     loading,
+    loadingMore,
+    hasMore,
     error,
     setQuery,
     setType,
     search,
+    loadMore,
   } = useSearchStore();
 
   const [localQuery, setLocalQuery] = useState(initialQuery);
@@ -123,9 +126,26 @@ export default function SearchPage() {
             </div>
           )}
 
-          {!loading && results.length > 0 && (
+          {!loading && hasMore && (
+            <div className="flex justify-center py-6">
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-6 py-3 text-sm font-medium text-primary transition-colors hover:bg-surface/80 disabled:opacity-50"
+              >
+                {loadingMore ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+                Load More ({totalResults - results.length} remaining)
+              </button>
+            </div>
+          )}
+
+          {!loading && !hasMore && results.length > 0 && (
             <p className="py-6 text-center text-sm text-secondary">
-              Showing all results
+              Showing all {totalResults} result{totalResults !== 1 ? "s" : ""}
             </p>
           )}
         </div>

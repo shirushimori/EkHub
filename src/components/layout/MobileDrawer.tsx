@@ -11,16 +11,12 @@ interface MobileDrawerProps {
 
 const links = [
   { to: "/", label: "Home" },
-  { to: "/discover", label: "Discover" },
   { to: "/movies", label: "Movies" },
   { to: "/series", label: "Series" },
   { to: "/anime", label: "Anime" },
   { to: "__search", label: "Search" },
   { to: "/library", label: "Library" },
   { to: "/bookmarks", label: "Bookmarks" },
-  { to: "/history", label: "History" },
-  { to: "/settings", label: "Settings" },
-  { to: "/about", label: "About" },
 ];
 
 export function MobileDrawer({ open, onClose, onSearchOpen }: MobileDrawerProps) {

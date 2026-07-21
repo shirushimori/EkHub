@@ -5,6 +5,7 @@ import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
 import { MobileDrawer } from "./MobileDrawer";
 import { SearchModal } from "./SearchModal";
+import { IntegrationPopup } from "@/components/ui/IntegrationPopup";
 
 export function MainLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -32,6 +33,7 @@ export function MainLayout() {
       <Sidebar />
       <MobileDrawer open={mobileMenuOpen} onClose={closeMenu} onSearchOpen={openSearch} />
       <SearchModal open={searchOpen} onClose={closeSearch} />
+      <IntegrationPopup />
 
       <main className="pt-14 pb-20 lg:ml-56 lg:pb-0">
         <Outlet />

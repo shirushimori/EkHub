@@ -66,7 +66,7 @@ function extractSlug(href: string): string {
 
 // ── Download Parser (flat packs + episode structure) ─────
 
-const DOWNLOAD_HOST_RE = /hubdrive\.|hubcdn\.|hubstream\.|gadgetsweb\./i;
+const DOWNLOAD_HOST_RE = /hubdrive\.|hubcdn\.|hubstream\.|gadgetsweb\.|driveleech|pixeldrain|mega\.nz|mediafire|gofile/i;
 const EPISODE_RE = /EPiSODE\s+(\d+)/i;
 
 interface ParseResult {
@@ -96,10 +96,11 @@ function parseFlatDownloads(body: Element, excludeContainer: Element | null): Do
     const qualityMatch = text.match(/(4K|2160p|1080p|720p|480p)/i);
     const sizeMatch = text.match(/\[([^\]]+)]/);
     const codecMatch = text.match(/(HEVC|x264|x265|H\.?265|H\.?264|AVC|AV1)/i);
+    const isSample = /\bsample\b/i.test(text);
 
     packs.push({
       season: "",
-      format: "",
+      format: isSample ? "Sample" : "",
       title: text,
       fileSize: sizeMatch ? sizeMatch[1] : "",
       quality: qualityMatch ? qualityMatch[1] : "",
@@ -266,13 +267,20 @@ export function parseListPage(html: string): { items: ScrapedItem[]; totalPages:
 
 function parseScreenshots(body: Element): string[] {
   const imgs: string[] = [];
-  const h3s = body.querySelectorAll("h3");
-  for (const h3 of Array.from(h3s)) {
-    const links = h3.querySelectorAll("a");
-    for (const a of Array.from(links)) {
-      const img = a.querySelector("img");
-      const src = img?.getAttribute("src") || "";
-      if (src && /catimages\.|vlcsnap\.|screenshot|imgur|postimg/i.test(src)) {
+  const allLinks = body.querySelectorAll("a");
+  for (const a of Array.from(allLinks)) {
+    const img = a.querySelector("img");
+    const src = img?.getAttribute("src") || "";
+    if (src && /catimages\.|vlcsnap\.|screenshot|imgur|postimg|image\./i.test(src)) {
+      imgs.push(src);
+    }
+  }
+  // Also check standalone img tags not wrapped in anchors
+  if (imgs.length === 0) {
+    const allImgs = body.querySelectorAll("img");
+    for (const img of Array.from(allImgs)) {
+      const src = img.getAttribute("src") || "";
+      if (src && /catimages\.|vlcsnap\.|screenshot|imgur|postimg|image\./i.test(src)) {
         imgs.push(src);
       }
     }
@@ -282,16 +290,18 @@ function parseScreenshots(body: Element): string[] {
 
 function parseWatchLinks(body: Element): { label: string; url: string }[] {
   const links: { label: string; url: string }[] = [];
-  const h4s = body.querySelectorAll("h4");
-  for (const h4 of Array.from(h4s)) {
-    const text = h4.textContent || "";
+  const candidates = body.querySelectorAll("h3, h4, h5, p");
+  for (const el of Array.from(candidates)) {
+    const text = el.textContent || "";
     if (!/watch|player/i.test(text)) continue;
-    const anchors = h4.querySelectorAll("a");
+    const anchors = el.querySelectorAll("a");
     for (const a of Array.from(anchors)) {
       const href = a.getAttribute("href") || "";
       const label = a.textContent?.trim() || "";
       if (href && label && /http/i.test(href)) {
-        links.push({ label, url: href });
+        if (!links.some((l) => l.url === href)) {
+          links.push({ label, url: href });
+        }
       }
     }
   }

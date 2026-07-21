@@ -46,6 +46,8 @@ export interface MovieDetail extends ContentItem {
   director?: string;
   storyline?: string;
   review?: string;
+  audioLanguages?: string;
+  printQuality?: string;
 }
 
 export interface TvDetail extends ContentItem {

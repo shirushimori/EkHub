@@ -116,27 +116,44 @@ export function parseDetailPage(html: string, slug: string): ScrapedDetail {
   const description = doc.querySelector("p.mt-4")?.textContent?.trim() || "";
 
   let stars = "";
+  let director = "";
   let lastAir = "";
   let printQuality = "";
   let audioLanguages = "";
   let seasons = "";
   const metaItems = doc.querySelectorAll(".metadata-item");
   for (const item of Array.from(metaItems)) {
+    const text = item.textContent?.trim() || "";
     const label = item.querySelector(".metadata-label")?.textContent?.trim() || "";
-    const value = item.querySelector(".metadata-value")?.textContent?.trim() || "";
-    if (label.includes("Stars")) stars = value;
-    else if (label.includes("Director")) stars = stars ? `${stars}, ${value}` : value;
-    else if (label.includes("Last Air")) lastAir = value;
-    else if (label.includes("Print")) printQuality = value;
-    else if (label.includes("Audio")) audioLanguages = value;
-    else if (label.includes("Season")) seasons = value;
+    if (label) {
+      const value = item.querySelector(".metadata-value")?.textContent?.trim() || "";
+      if (label.includes("Stars")) stars = value;
+      else if (label.includes("Director")) director = value;
+      else if (label.includes("Last Air")) lastAir = value;
+      else if (label.includes("Print")) printQuality = value;
+      else if (label.includes("Audio")) audioLanguages = value;
+      else if (label.includes("Season")) seasons = value;
+    } else {
+      // Fallback: metadata-item has label as text node before value
+      const colonIdx = text.indexOf(":");
+      if (colonIdx > 0) {
+        const lbl = text.substring(0, colonIdx).trim();
+        const val = text.substring(colonIdx + 1).trim();
+        if (/Director/i.test(lbl)) director = val;
+        else if (/Stars/i.test(lbl)) stars = val;
+        else if (/Release|Last Air/i.test(lbl)) lastAir = val;
+        else if (/Print/i.test(lbl)) printQuality = val;
+        else if (/Audio/i.test(lbl)) audioLanguages = val;
+        else if (/Season/i.test(lbl)) seasons = val;
+      }
+    }
   }
 
   const trailerBtn = doc.querySelector("[data-trailer-url]");
   const trailerUrl = trailerBtn?.getAttribute("data-trailer-url") || "";
 
   // Parse badge-outline elements → separate genres from formats
-  const badgeOutlines = Array.from(doc.querySelectorAll(".badge.badge-outline a, .badge.badge-outline")).map(
+  const badgeOutlines = Array.from(doc.querySelectorAll(".badge-outline")).map(
     (el) => el.textContent?.trim() || ""
   ).filter(Boolean);
 
@@ -145,6 +162,22 @@ export function parseDetailPage(html: string, slug: string): ScrapedDetail {
 
   // Parse year and season from title or text content near title
   const titleText = title;
+
+  // Extract embedded player (youtube/dailymotion trailers)
+  const embeddedPlayerUrl = (() => {
+    const iframe = doc.querySelector("iframe[src*='youtube'], iframe[src*='dailymotion'], iframe[src*='embed']");
+    return iframe?.getAttribute("src") || "";
+  })();
+
+  // Extract watch links from the page
+  const watchLinks: { label: string; url: string }[] = [];
+  for (const el of Array.from(doc.querySelectorAll("a[href*='watch'], a[href*='player'], a[href*='stream']"))) {
+    const href = el.getAttribute("href") || "";
+    const label = el.textContent?.trim() || "";
+    if (href && label) {
+      watchLinks.push({ label, url: href });
+    }
+  }
   const yearMatch = titleText.match(/\((\d{4})\)/);
   const year = yearMatch ? yearMatch[1] : "";
   const seasonMatch = doc.querySelector(".text-muted-foreground")?.textContent?.match(/S\d+/i);
@@ -458,11 +491,13 @@ export function parseDetailPage(html: string, slug: string): ScrapedDetail {
     trailerUrl,
     downloads,
     episodes,
-    screenshots: [],
-    watchLinks: [],
-    embeddedPlayerUrl: "",
-    director: "",
-    storyline: "",
+    screenshots: Array.from(doc.querySelectorAll("a img[src*='catimages'], a img[src*='vlcsnap'], a img[src*='screenshot'], a img[src*='imgur'], a img[src*='postimg']")).map(
+      (img) => img.getAttribute("src") || ""
+    ).filter(Boolean),
+    watchLinks,
+    embeddedPlayerUrl,
+    director,
+    storyline: description,
     review: "",
   };
 }

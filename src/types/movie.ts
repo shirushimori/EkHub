@@ -125,3 +125,40 @@ export interface TmdbGenreResponse {
 }
 
 export type TmdbTimeWindow = "day" | "week";
+
+// ── Watch Providers ────────────────────────────────────────
+
+export interface TmdbWatchProvider {
+  provider_id: number;
+  provider_name: string;
+  logo_path: string | null;
+  display_priority: number;
+}
+
+export interface TmdbWatchRegion {
+  link: string;
+  flatrate?: TmdbWatchProvider[];
+  rent?: TmdbWatchProvider[];
+  buy?: TmdbWatchProvider[];
+  free?: TmdbWatchProvider[];
+  ads?: TmdbWatchProvider[];
+}
+
+export interface TmdbWatchProvidersResponse {
+  id: number;
+  results: Record<string, TmdbWatchRegion>;
+}
+
+// ── TMDb Home Feed Item (for hero banner) ──────────────────
+
+export interface TmdbHomeItem {
+  id: number;
+  title: string;
+  overview: string;
+  backdrop_path: string | null;
+  poster_path: string | null;
+  vote_average: number;
+  release_date: string;
+  genre_ids: number[];
+  media_type?: string;
+}

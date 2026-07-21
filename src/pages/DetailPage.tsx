@@ -1,14 +1,23 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router";
-import { ArrowLeft, Star, Play, ExternalLink, ChevronDown, Download, Globe, X, Camera, BookOpen, MessageSquare } from "lucide-react";
+import { ArrowLeft, Star, Play, ExternalLink, ChevronDown, Download, Globe, X, Camera, BookOpen, MessageSquare, MonitorSmartphone, ChevronLeft, ChevronRight } from "lucide-react";
 import { useContentStore } from "@/stores/contentStore";
 import { posterUrl, typeLabel, type MovieDetail } from "@/types/content";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { getMovieWatchProviders } from "@/providers/tmdb";
 import type { DownloadPack, EpisodeDownload } from "@/types/scraper";
 import type { ScraperSource } from "@/types/scraper";
+import type { TmdbWatchRegion } from "@/types/movie";
+import { BookmarkButton } from "@/components/ui/BookmarkButton";
+
+const HIANIME_BASE = "https://hianime.lol";
 
 function isMovieDetail(d: unknown): d is MovieDetail {
   return d != null && typeof d === "object" && "tagline" in d && "cast" in d && "videos" in d;
+}
+
+function isAnimeSource(d: unknown): boolean {
+  return d != null && typeof d === "object" && "id" in d && typeof (d as { id: string }).id === "string" && (d as { id: string }).id.startsWith("jikan:");
 }
 
 export default function DetailPage() {
@@ -16,6 +25,11 @@ export default function DetailPage() {
   const { detail, detailSources, activeSource, loading, error, fetchDetail, switchSource } = useContentStore();
   const [showSourceDropdown, setShowSourceDropdown] = useState(false);
   const [showPlayer, setShowPlayer] = useState(false);
+  const [watchProviders, setWatchProviders] = useState<TmdbWatchRegion | null>(null);
+  const [showWatchLinkPlayer, setShowWatchLinkPlayer] = useState(false);
+  const [activeWatchLink, setActiveWatchLink] = useState<{ label: string; url: string } | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -23,6 +37,20 @@ export default function DetailPage() {
       fetchDetail(slug, "movie");
     }
   }, [slug, fetchDetail]);
+
+  useEffect(() => {
+    if (!detail) return;
+    if (!detail.id?.startsWith("tmdb:")) return;
+    const tmdbId = parseInt(detail.id.split(":")[1], 10);
+    if (!isNaN(tmdbId)) {
+      getMovieWatchProviders(tmdbId)
+        .then((res) => {
+          const region = res.results?.["IN"] || res.results?.["US"] || Object.values(res.results || {})[0];
+          if (region) setWatchProviders(region);
+        })
+        .catch(() => {});
+    }
+  }, [detail]);
 
   useEffect(() => {
     if (!showSourceDropdown) return;
@@ -34,6 +62,18 @@ export default function DetailPage() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showSourceDropdown]);
+
+  useEffect(() => {
+    if (lightboxIndex === null || !detail) return;
+    const ss = isMovieDetail(detail) ? (detail as MovieDetail).screenshots || [] : [];
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightboxIndex(null);
+      if (e.key === "ArrowLeft" && lightboxIndex > 0) setLightboxIndex(lightboxIndex - 1);
+      if (e.key === "ArrowRight" && lightboxIndex < ss.length - 1) setLightboxIndex(lightboxIndex + 1);
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [lightboxIndex, detail]);
 
   const handleSourceChange = (source: ScraperSource) => {
     switchSource(source);
@@ -79,6 +119,8 @@ export default function DetailPage() {
   const director = movieDetail?.director || "";
   const storyline = movieDetail?.storyline || "";
   const review = movieDetail?.review || "";
+  const audioLanguages = movieDetail?.audioLanguages || "";
+  const printQuality = movieDetail?.printQuality || "";
 
   return (
     <div className="select-none mx-auto max-w-7xl px-4 py-6 md:px-8">
@@ -130,6 +172,10 @@ export default function DetailPage() {
           <h1 className="mb-2 text-2xl font-bold leading-tight sm:text-3xl md:text-4xl">
             {d.title}
           </h1>
+
+          <div className="mb-3">
+            <BookmarkButton item={d as import("@/types/content").ContentItem} size="md" />
+          </div>
 
           {/* Source Selector */}
           {detailSources.length > 1 && (
@@ -185,6 +231,20 @@ export default function DetailPage() {
             {director && <span>Dir: {director}</span>}
           </div>
 
+          {/* Language */}
+          {audioLanguages && (
+            <p className="mb-2 text-sm text-secondary">
+              <span className="font-medium text-primary">Language:</span> {audioLanguages}
+            </p>
+          )}
+
+          {/* Quality */}
+          {printQuality && (
+            <p className="mb-2 text-sm text-secondary">
+              <span className="font-medium text-primary">Quality:</span> {printQuality}
+            </p>
+          )}
+
           {/* Quality badges */}
           {d.qualityBadges && d.qualityBadges.length > 0 && (
             <div className="mb-4 flex flex-wrap gap-2">
@@ -196,6 +256,103 @@ export default function DetailPage() {
                   {b}
                 </span>
               ))}
+            </div>
+          )}
+
+          {/* Anime-specific metadata */}
+          {isAnimeSource(d) && (
+            <div className="mb-4 space-y-1.5 text-sm text-secondary">
+              {d.seasonInfo && (
+                <p>
+                  <span className="font-medium text-primary">Episodes:</span> {d.seasonInfo}
+                </p>
+              )}
+              {director && (
+                <p>
+                  <span className="font-medium text-primary">Studios:</span> {director}
+                </p>
+              )}
+              {d.year && (
+                <p>
+                  <span className="font-medium text-primary">Aired:</span> {d.year}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Watch Providers */}
+          {watchProviders && (
+            <div className="mb-4">
+              <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-secondary">
+                <MonitorSmartphone className="h-4 w-4" />
+                Where to Watch
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {watchProviders.flatrate?.map((p) => (
+                  <div
+                    key={p.provider_id}
+                    className="flex items-center gap-1.5 rounded-lg bg-surface px-2.5 py-1.5 text-xs text-secondary"
+                  >
+                    {p.logo_path && (
+                      <img
+                        src={`https://image.tmdb.org/t/p/w45${p.logo_path}`}
+                        alt={p.provider_name}
+                        className="h-5 w-5 rounded-sm object-cover"
+                      />
+                    )}
+                    <span>{p.provider_name}</span>
+                    <span className="text-[10px] text-green-400">Stream</span>
+                  </div>
+                ))}
+                {watchProviders.free?.map((p) => (
+                  <div
+                    key={p.provider_id}
+                    className="flex items-center gap-1.5 rounded-lg bg-surface px-2.5 py-1.5 text-xs text-secondary"
+                  >
+                    {p.logo_path && (
+                      <img
+                        src={`https://image.tmdb.org/t/p/w45${p.logo_path}`}
+                        alt={p.provider_name}
+                        className="h-5 w-5 rounded-sm object-cover"
+                      />
+                    )}
+                    <span>{p.provider_name}</span>
+                    <span className="text-[10px] text-blue-400">Free</span>
+                  </div>
+                ))}
+                {watchProviders.rent?.map((p) => (
+                  <div
+                    key={p.provider_id}
+                    className="flex items-center gap-1.5 rounded-lg bg-surface px-2.5 py-1.5 text-xs text-secondary"
+                  >
+                    {p.logo_path && (
+                      <img
+                        src={`https://image.tmdb.org/t/p/w45${p.logo_path}`}
+                        alt={p.provider_name}
+                        className="h-5 w-5 rounded-sm object-cover"
+                      />
+                    )}
+                    <span>{p.provider_name}</span>
+                    <span className="text-[10px] text-orange-400">Rent</span>
+                  </div>
+                ))}
+                {watchProviders.buy?.map((p) => (
+                  <div
+                    key={p.provider_id}
+                    className="flex items-center gap-1.5 rounded-lg bg-surface px-2.5 py-1.5 text-xs text-secondary"
+                  >
+                    {p.logo_path && (
+                      <img
+                        src={`https://image.tmdb.org/t/p/w45${p.logo_path}`}
+                        alt={p.provider_name}
+                        className="h-5 w-5 rounded-sm object-cover"
+                      />
+                    )}
+                    <span>{p.provider_name}</span>
+                    <span className="text-[10px] text-purple-400">Buy</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -214,7 +371,7 @@ export default function DetailPage() {
           )}
 
           {/* Watch Now Buttons */}
-          {(embeddedPlayerUrl || watchLinks.length > 0) && (
+          {(embeddedPlayerUrl || watchLinks.length > 0 || isAnimeSource(d)) && (
             <div className="mb-6 flex flex-wrap gap-3">
               {embeddedPlayerUrl && (
                 <button
@@ -226,17 +383,100 @@ export default function DetailPage() {
                 </button>
               )}
               {watchLinks.map((link, i) => (
-                <a
+                <button
                   key={i}
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  onClick={() => {
+                    setActiveWatchLink(link);
+                    setShowWatchLinkPlayer(true);
+                  }}
                   className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-6 py-3 text-sm font-medium text-primary backdrop-blur-sm transition-colors hover:bg-white/20"
                 >
                   <Play className="h-4 w-4" />
                   {link.label}
-                </a>
+                </button>
               ))}
+              {isAnimeSource(d) && (
+                <a
+                  href={`${HIANIME_BASE}/search?keyword=${encodeURIComponent(d.title)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:from-purple-700 hover:to-pink-700"
+                >
+                  <Play className="h-4 w-4 fill-white" />
+                  Watch on HiAnime
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* Watch Link Player Overlay */}
+          {showWatchLinkPlayer && activeWatchLink && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => { setShowWatchLinkPlayer(false); setActiveWatchLink(null); }}>
+              <div className="relative w-full max-w-5xl px-4" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => { setShowWatchLinkPlayer(false); setActiveWatchLink(null); }}
+                  className="absolute -top-10 right-0 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+                <div className="aspect-video overflow-hidden rounded-xl bg-black shadow-2xl">
+                  <iframe
+                    src={activeWatchLink.url}
+                    className="h-full w-full border-0"
+                    allowFullScreen
+                    allow="autoplay; encrypted-media"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <p className="mt-2 text-center text-xs text-secondary">
+                  {activeWatchLink.label}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Screenshot Lightbox */}
+          {lightboxIndex !== null && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+              onClick={() => setLightboxIndex(null)}
+            >
+              <div className="relative flex max-h-[90vh] max-w-[95vw] items-center" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => setLightboxIndex(null)}
+                  className="absolute -top-10 right-0 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+
+                {lightboxIndex > 0 && (
+                  <button
+                    onClick={() => setLightboxIndex(lightboxIndex - 1)}
+                    className="absolute -left-12 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/25 max-sm:-left-10"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+                )}
+
+                <img
+                  src={screenshots[lightboxIndex]}
+                  alt={`Screenshot ${lightboxIndex + 1}`}
+                  className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
+                />
+
+                {lightboxIndex < screenshots.length - 1 && (
+                  <button
+                    onClick={() => setLightboxIndex(lightboxIndex + 1)}
+                    className="absolute -right-12 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/25 max-sm:-right-10"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </button>
+                )}
+
+                <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs text-white/60">
+                  {lightboxIndex + 1} / {screenshots.length}
+                </div>
+              </div>
             </div>
           )}
 
@@ -281,23 +521,49 @@ export default function DetailPage() {
                 <Camera className="h-4 w-4" />
                 Screenshots
               </h3>
-              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
-                {screenshots.map((src, i) => (
-                  <a
-                    key={i}
-                    href={src}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 overflow-hidden rounded-lg border border-border transition-colors hover:border-accent/50"
-                  >
-                    <img
-                      src={src}
-                      alt={`Screenshot ${i + 1}`}
-                      className="h-[130px] w-[230px] object-cover"
-                      loading="lazy"
-                    />
-                  </a>
-                ))}
+              <div className="group relative">
+                <div
+                  ref={scrollContainerRef}
+                  className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin"
+                >
+                  {screenshots.map((src, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setLightboxIndex(i)}
+                      className="shrink-0 overflow-hidden rounded-lg border border-border transition-colors hover:border-accent/50 focus:outline-none"
+                    >
+                      <img
+                        src={src}
+                        alt={`Screenshot ${i + 1}`}
+                        className="h-[130px] w-[230px] object-cover"
+                        loading="lazy"
+                      />
+                    </button>
+                  ))}
+                </div>
+
+                {screenshots.length > 2 && (
+                  <>
+                    <button
+                      onClick={() => {
+                        const el = scrollContainerRef.current;
+                        if (el) el.scrollBy({ left: -260, behavior: "smooth" });
+                      }}
+                      className="absolute left-0 top-1/2 hidden -translate-y-1/2 rounded-r-lg bg-black/50 p-2 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/70 group-hover:opacity-100 md:block"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        const el = scrollContainerRef.current;
+                        if (el) el.scrollBy({ left: 260, behavior: "smooth" });
+                      }}
+                      className="absolute right-0 top-1/2 hidden -translate-y-1/2 rounded-l-lg bg-black/50 p-2 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/70 group-hover:opacity-100 md:block"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )}

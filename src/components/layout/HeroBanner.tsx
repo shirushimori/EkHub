@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Play, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router";
 import { cn } from "@/lib/cn";
-import { posterUrl, typeLabel, type ContentItem } from "@/types/content";
+import type { ContentItem } from "@/types/content";
 
 interface HeroBannerProps {
   items: ContentItem[];
@@ -47,6 +47,15 @@ export function HeroBanner({ items }: HeroBannerProps) {
   const item = items[current];
   if (!item) return null;
 
+  const backdropUrl = item.backdrop || "";
+  const posterSrc = item.poster || "";
+  const year = item.year || "";
+  const genres = item.genres?.slice(0, 3) || [];
+  const slug = item.slug || item.id;
+  const overview = item.description || "";
+  const rating = item.rating || 0;
+  const mediaType = item.type || "movie";
+
   return (
     <div
       className="group/hero relative -mt-14 h-[60vh] min-h-[400px] overflow-hidden md:h-[64vh] md:min-h-[440px]"
@@ -63,11 +72,13 @@ export function HeroBanner({ items }: HeroBannerProps) {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <img
-            src={posterUrl(item)}
-            alt={item.title}
-            className="h-full w-full object-cover blur-[2px] scale-105"
-          />
+          {(backdropUrl || posterSrc) && (
+            <img
+              src={backdropUrl || posterSrc}
+              alt={item.title}
+              className="h-full w-full object-cover blur-[2px] scale-105"
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-r from-bg via-bg/80 to-bg/30" />
           <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/20 to-transparent" />
         </motion.div>
@@ -86,7 +97,7 @@ export function HeroBanner({ items }: HeroBannerProps) {
                 transition={{ duration: 0.4, delay: 0.1 }}
               >
                 <span className="mb-3 inline-block rounded-md bg-accent/20 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-accent">
-                  {typeLabel(item.type)}
+                  {mediaType === "series" ? "Series" : "Movie"}
                 </span>
 
                 <h1 className="mb-3 text-3xl font-bold text-primary md:text-5xl">
@@ -94,41 +105,37 @@ export function HeroBanner({ items }: HeroBannerProps) {
                 </h1>
 
                 <div className="mb-3 flex items-center gap-2 text-sm text-secondary">
-                  {item.year && <span>{item.year}</span>}
-                  {item.rating != null && (
+                  {year && <span>{year}</span>}
+                  {rating > 0 && (
                     <>
                       <span className="text-border">|</span>
-                      <span className="text-warning">★ {item.rating}</span>
+                      <span className="text-warning">★ {rating.toFixed(1)}</span>
                     </>
                   )}
-                  {item.genres.length > 0 && (
+                  {genres.length > 0 && (
                     <>
                       <span className="text-border">|</span>
-                      <span>{item.genres.slice(0, 3).join(", ")}</span>
+                      <span>{genres.join(", ")}</span>
                     </>
                   )}
                 </div>
 
-                {item.description && (
+                {overview && (
                   <p className="mb-5 line-clamp-2 text-sm leading-relaxed text-secondary">
-                    {item.description}
+                    {overview}
                   </p>
                 )}
 
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() =>
-                      item.slug && navigate(`/detail/${item.slug}`)
-                    }
+                    onClick={() => navigate(`/detail/${slug}`)}
                     className="inline-flex items-center gap-2 rounded-xl bg-accent px-7 py-3 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
                   >
                     <Play className="h-4 w-4 fill-white" />
                     Play Now
                   </button>
                   <button
-                    onClick={() =>
-                      item.slug && navigate(`/detail/${item.slug}`)
-                    }
+                    onClick={() => navigate(`/detail/${slug}`)}
                     className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-7 py-3 text-sm font-medium text-primary backdrop-blur-sm transition-colors hover:bg-white/20"
                   >
                     <Info className="h-4 w-4" />
@@ -148,24 +155,26 @@ export function HeroBanner({ items }: HeroBannerProps) {
               exit={{ opacity: 0, x: -40, rotateY: 8 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <div className="relative h-[320px] w-[220px] overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10">
-                <img
-                  src={posterUrl(item)}
-                  alt={item.title}
-                  className="h-full w-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-3">
-                  <p className="text-xs font-semibold text-white/90 line-clamp-2">
-                    {item.title}
-                  </p>
-                  {item.year && (
-                    <p className="mt-0.5 text-[10px] text-white/50">
-                      {item.year}
+              {posterSrc && (
+                <div className="relative h-[320px] w-[220px] overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10">
+                  <img
+                    src={posterSrc}
+                    alt={item.title}
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <p className="text-xs font-semibold text-white/90 line-clamp-2">
+                      {item.title}
                     </p>
-                  )}
+                    {year && (
+                      <p className="mt-0.5 text-[10px] text-white/50">
+                        {year}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </motion.div>
           </AnimatePresence>
         </div>

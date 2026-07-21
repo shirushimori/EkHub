@@ -244,14 +244,15 @@ describe("tmdb provider", () => {
     await expect(tmdb.searchMovies("fail")).rejects.toThrow("Network fail");
   });
 
-  it("includes Bearer token in headers when API key is set", async () => {
+  it("uses proxy endpoint instead of direct TMDb calls", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ page: 1, results: [], total_pages: 1, total_results: 0 }),
     });
 
     await tmdb.searchMovies("auth test");
-    const headers = mockFetch.mock.calls[0][1]?.headers;
-    expect(headers).toBeDefined();
+    const url = mockFetch.mock.calls[0][0] as string;
+    expect(url).toContain("/api/tmdb/");
+    expect(url).not.toContain("api.themoviedb.org");
   });
 });

@@ -4,6 +4,7 @@ import { Play } from "lucide-react";
 import { useNavigate } from "react-router";
 import { cn } from "@/lib/cn";
 import { posterUrl, typeLabel, type ContentItem } from "@/types/content";
+import { BookmarkButton } from "@/components/ui/BookmarkButton";
 
 interface PosterCardProps {
   item: ContentItem;
@@ -63,11 +64,14 @@ export const PosterCard = memo(function PosterCard({
           </div>
         </div>
 
-        {item.rating != null && (
-          <div className="absolute right-2 top-2 rounded-md bg-black/70 px-1.5 py-0.5 text-xs font-medium text-warning">
-            ★ {item.rating}
-          </div>
-        )}
+        <div className="absolute right-2 top-2 flex items-center gap-1.5">
+          {item.rating != null && (
+            <span className="rounded-md bg-black/70 px-1.5 py-0.5 text-xs font-medium text-warning">
+              ★ {item.rating}
+            </span>
+          )}
+          <BookmarkButton item={item} />
+        </div>
 
         {item.qualityBadges && item.qualityBadges.length > 0 && (
           <div className="absolute left-2 top-2 flex gap-1">

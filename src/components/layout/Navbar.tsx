@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router";
-import { Search, Bell, Menu } from "lucide-react";
+import { Search, Menu } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { NotificationBell } from "@/components/ui/NotificationBell";
 
 interface NavbarProps {
   onMenuToggle?: () => void;
@@ -37,7 +38,6 @@ export function Navbar({ onMenuToggle, onSearchOpen }: NavbarProps) {
         <div className="hidden flex-1 items-center justify-center gap-1 md:flex">
           {[
             { to: "/", label: "Home" },
-            { to: "/discover", label: "Discover" },
             { to: "/movies", label: "Movies" },
             { to: "/series", label: "Series" },
             { to: "/anime", label: "Anime" },
@@ -72,13 +72,7 @@ export function Navbar({ onMenuToggle, onSearchOpen }: NavbarProps) {
             <Search className="h-5 w-5" />
           </button>
 
-          <button
-            className="relative flex h-9 w-9 items-center justify-center rounded-lg text-secondary hover:bg-surface hover:text-primary"
-            aria-label="Notifications"
-          >
-            <Bell className="h-5 w-5" />
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent" />
-          </button>
+          <NotificationBell />
         </div>
       </div>
     </nav>

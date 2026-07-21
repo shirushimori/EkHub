@@ -1,31 +1,19 @@
 import { Link, useLocation } from "react-router";
 import {
   Home,
-  Compass,
   Film,
   Tv,
   Sparkles,
-  Search,
   Library,
   Bookmark,
-  History,
-  Settings,
-  Info,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const navSections = [
   {
-    label: "Browse",
-    items: [
-      { to: "/", icon: Home, label: "Home" },
-      { to: "/discover", icon: Compass, label: "Discover" },
-      { to: "/search", icon: Search, label: "Search" },
-    ],
-  },
-  {
     label: "Content",
     items: [
+      { to: "/", icon: Home, label: "Home" },
       { to: "/movies", icon: Film, label: "Movies" },
       { to: "/series", icon: Tv, label: "Series" },
       { to: "/anime", icon: Sparkles, label: "Anime" },
@@ -36,14 +24,6 @@ const navSections = [
     items: [
       { to: "/library", icon: Library, label: "Library" },
       { to: "/bookmarks", icon: Bookmark, label: "Bookmarks" },
-      { to: "/history", icon: History, label: "History" },
-    ],
-  },
-  {
-    label: "Other",
-    items: [
-      { to: "/settings", icon: Settings, label: "Settings" },
-      { to: "/about", icon: Info, label: "About" },
     ],
   },
 ];
