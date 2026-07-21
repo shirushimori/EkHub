@@ -1,8 +1,9 @@
 import { scraper4khdhub } from "../providers/4khdhub";
 import { scraperHdHub4u } from "../providers/hdhub4u";
 import { scraperJikan } from "../providers/jikan";
-import { CATEGORIES, type ScrapedItem, type ScrapedDetail, type CategoryConfig, type ScraperSource } from "../types/scraper";
+import { CATEGORIES, CATEGORIES_4KHDHUB, CATEGORIES_HDHUB4U, type ScrapedItem, type ScrapedDetail, type CategoryConfig, type ScraperSource } from "../types/scraper";
 import type { ContentItem, MovieDetail, TvDetail } from "../types/content";
+import type { SourceMode } from "@/stores/sourceStore";
 
 // ── Debug Logger ──────────────────────────────────────────
 
@@ -33,7 +34,7 @@ const PROVIDERS: Record<ScraperSource, ScraperProvider> = {
 
 // ── Bridge: ScrapedItem → ContentItem ──────────────────────
 
-export function scrapedToContentItem(item: ScrapedItem, source: ScraperSource = "4khdhub"): ContentItem {
+export function scrapedToContentItem(item: ScrapedItem, source: ScraperSource = "hdhub4u"): ContentItem {
   return {
     id: `${source}:${item.slug}`,
     title: item.title,
@@ -145,6 +146,20 @@ export interface MultiDetailResult {
   sources: SourceDetail[];
 }
 
+// ── Mode Helpers ──────────────────────────────────────────
+
+export function getActiveProviders(mode: SourceMode): ScraperSource[] {
+  if (mode === "hdhub4u") return ["hdhub4u"];
+  if (mode === "4khdhub") return ["4khdhub"];
+  return ["hdhub4u", "4khdhub", "jikan"];
+}
+
+export function getCategoriesForMode(mode: SourceMode): CategoryConfig[] {
+  if (mode === "hdhub4u") return CATEGORIES_HDHUB4U;
+  if (mode === "4khdhub") return CATEGORIES_4KHDHUB;
+  return CATEGORIES;
+}
+
 // ── Service API ───────────────────────────────────────────
 
 function getSourceForCategory(cat: CategoryConfig): ScraperSource {
@@ -157,33 +172,25 @@ const SOURCE_LABELS: Record<ScraperSource, string> = {
   "jikan": "MyAnimeList",
 };
 
-export async function getHome(page?: number): Promise<ContentItem[]> {
-  logScraper(`getHome(page=${page ?? 1})`, "fetching from 4khdhub + hdhub4u + jikan...");
-  const [r1, r2, r3] = await Promise.allSettled([
-    PROVIDERS["4khdhub"].fetchHome(page),
-    PROVIDERS["hdhub4u"].fetchHome(page),
-    PROVIDERS["jikan"].fetchHome(page),
-  ]);
+export async function getHome(page?: number, mode?: SourceMode): Promise<ContentItem[]> {
+  logScraper(`getHome(page=${page ?? 1}, mode=${mode ?? "hdhub4u"})`);
+  const providers = getActiveProviders(mode ?? "hdhub4u");
+
+  const settled = await Promise.allSettled(
+    providers.map((key) => PROVIDERS[key].fetchHome(page))
+  );
 
   const items: ContentItem[] = [];
-  if (r1.status === "fulfilled") {
-    logScraper("getHome 4khdhub", `${r1.value.items.length} items, ${r1.value.totalPages} pages`);
-    items.push(...r1.value.items.map((i) => scrapedToContentItem(i, "4khdhub")));
-  } else {
-    logScraperError("getHome 4khdhub failed:", r1.reason);
+  for (let i = 0; i < providers.length; i++) {
+    const result = settled[i];
+    if (result.status === "fulfilled") {
+      logScraper(`getHome ${providers[i]}`, `${result.value.items.length} items`);
+      items.push(...result.value.items.map((item) => scrapedToContentItem(item, providers[i])));
+    } else {
+      logScraperError(`getHome ${providers[i]} failed:`, result.reason);
+    }
   }
-  if (r2.status === "fulfilled") {
-    logScraper("getHome hdhub4u", `${r2.value.items.length} items, ${r2.value.totalPages} pages`);
-    items.push(...r2.value.items.map((i) => scrapedToContentItem(i, "hdhub4u")));
-  } else {
-    logScraperError("getHome hdhub4u failed:", r2.reason);
-  }
-  if (r3.status === "fulfilled") {
-    logScraper("getHome jikan", `${r3.value.items.length} items`);
-    items.push(...r3.value.items.map((i) => scrapedToContentItem(i, "jikan")));
-  } else {
-    logScraperError("getHome jikan failed:", r3.reason);
-  }
+
   logScraper("getHome total", `${items.length} items`);
   return items;
 }
@@ -197,6 +204,19 @@ export async function getCategory(slug: string, page = 1): Promise<{ items: Cont
   const { items, totalPages } = await provider.fetchCategory(cat.path, page);
   return {
     items: items.map((i) => scrapedToContentItem(i, source)),
+    totalPages,
+  };
+}
+
+export async function getCategoryForMode(slug: string, mode: SourceMode, page = 1): Promise<{ items: ContentItem[]; totalPages: number }> {
+  const cats = getCategoriesForMode(mode);
+  const cat = cats.find((c) => c.slug === slug);
+  if (!cat) throw new Error(`Unknown category: ${slug}`);
+
+  const provider = PROVIDERS[cat.source];
+  const { items, totalPages } = await provider.fetchCategory(cat.path, page);
+  return {
+    items: items.map((i) => scrapedToContentItem(i, cat.source)),
     totalPages,
   };
 }
@@ -257,8 +277,8 @@ export async function getDetailMulti(slug: string): Promise<MultiDetailResult> {
     return { primary: movieDetail, sources: [{ source: "jikan", label: SOURCE_LABELS["jikan"], detail: movieDetail }] };
   }
 
-  const primarySource = (prefix && prefix in PROVIDERS) ? prefix as ScraperSource : "4khdhub";
-  const altSource = primarySource === "4khdhub" ? "hdhub4u" : "4khdhub";
+  const primarySource = (prefix && prefix in PROVIDERS) ? prefix as ScraperSource : "hdhub4u";
+  const altSource = primarySource === "hdhub4u" ? "4khdhub" : "hdhub4u";
 
   logScraper(`getDetailMulti("${slug}")`, `primary=${primarySource}, alt=${altSource}, cleanSlug="${cleanSlug}"`);
 
@@ -332,33 +352,25 @@ export async function getDetailMulti(slug: string): Promise<MultiDetailResult> {
   return { primary: sources[0].detail, sources };
 }
 
-export async function search(query: string): Promise<ContentItem[]> {
-  logScraper(`search("${query}")`, "searching 4khdhub + hdhub4u + jikan...");
-  const [r1, r2, r3] = await Promise.allSettled([
-    PROVIDERS["4khdhub"].search(query),
-    PROVIDERS["hdhub4u"].search(query),
-    PROVIDERS["jikan"].search(query),
-  ]);
+export async function search(query: string, mode?: SourceMode): Promise<ContentItem[]> {
+  logScraper(`search("${query}", mode=${mode ?? "hdhub4u"})`);
+  const providers = getActiveProviders(mode ?? "hdhub4u");
+
+  const settled = await Promise.allSettled(
+    providers.map((key) => PROVIDERS[key].search(query))
+  );
 
   const items: ContentItem[] = [];
-  if (r1.status === "fulfilled") {
-    logScraper("search 4khdhub", `${r1.value.length} results`);
-    items.push(...r1.value.map((i) => scrapedToContentItem(i, "4khdhub")));
-  } else {
-    logScraperError("search 4khdhub failed:", r1.reason);
+  for (let i = 0; i < providers.length; i++) {
+    const result = settled[i];
+    if (result.status === "fulfilled") {
+      logScraper(`search ${providers[i]}`, `${result.value.length} results`);
+      items.push(...result.value.map((item) => scrapedToContentItem(item, providers[i])));
+    } else {
+      logScraperError(`search ${providers[i]} failed:`, result.reason);
+    }
   }
-  if (r2.status === "fulfilled") {
-    logScraper("search hdhub4u", `${r2.value.length} results`);
-    items.push(...r2.value.map((i) => scrapedToContentItem(i, "hdhub4u")));
-  } else {
-    logScraperError("search hdhub4u failed:", r2.reason);
-  }
-  if (r3.status === "fulfilled") {
-    logScraper("search jikan", `${r3.value.length} results`);
-    items.push(...r3.value.map((i) => scrapedToContentItem(i, "jikan")));
-  } else {
-    logScraperError("search jikan failed:", r3.reason);
-  }
+
   logScraper("search total", `${items.length} results`);
   return items;
 }
@@ -374,10 +386,12 @@ export function getAllCategories(): CategoryConfig[] {
 export const scraperService = {
   getHome,
   getCategory,
+  getCategoryForMode,
   getDetail,
   getDetailFromSource,
   getDetailMulti,
   search,
   getCategoryConfig,
   getAllCategories,
+  getCategoriesForMode,
 };

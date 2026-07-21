@@ -7,12 +7,12 @@ export default function AboutPage() {
         <div className="mb-6 flex justify-center">
           <img
             src="https://raw.githubusercontent.com/shirushimori/shirushimori/refs/heads/main/assets/pfp1.jpg"
-            alt="Dotrent"
+            alt="EkHub"
             className="h-20 w-20 rounded-2xl object-cover"
           />
         </div>
 
-        <h1 className="mb-2 text-3xl font-bold text-primary">Dotrent</h1>
+        <h1 className="mb-2 text-3xl font-bold text-primary">EkHub</h1>
         <p className="mb-1 text-sm text-secondary">Version 2.0.0</p>
         <p className="mb-8 text-sm leading-relaxed text-secondary">
           A modern, ultra-fast streaming platform designed for every device.

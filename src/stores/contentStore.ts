@@ -3,6 +3,7 @@ import { scraperService, type SourceDetail } from "@/services/scraperService";
 
 import type { ContentItem, MovieDetail, TvDetail, ContentType } from "@/types/content";
 import type { ScraperSource } from "@/types/scraper";
+import { useSourceStore } from "@/stores/sourceStore";
 
 type ContentDetail = MovieDetail | TvDetail;
 
@@ -48,7 +49,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     set({ loading: true, error: null, results: [], allResults: [] });
 
     try {
-      const allResults = await scraperService.search(query);
+      const mode = useSourceStore.getState().mode;
+      const allResults = await scraperService.search(query, mode);
 
       const filtered = type
         ? allResults.filter((i) => i.type === type)
@@ -140,7 +142,8 @@ export const useContentStore = create<ContentState>((set, get) => ({
   fetchAll: async () => {
     set({ loading: true, error: null });
     try {
-      const scraperItems = await scraperService.getHome();
+      const mode = useSourceStore.getState().mode;
+      const scraperItems = await scraperService.getHome(undefined, mode);
 
       const movies = scraperItems.filter((i) => i.type === "movie");
       const seriesItems = scraperItems.filter((i) => i.type === "series");

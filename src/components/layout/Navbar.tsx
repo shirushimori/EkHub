@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router";
 import { Search, Menu } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { NotificationBell } from "@/components/ui/NotificationBell";
+import { SourceSelector } from "@/components/ui/SourceSelector";
 
 interface NavbarProps {
   onMenuToggle?: () => void;
@@ -26,11 +27,11 @@ export function Navbar({ onMenuToggle, onSearchOpen }: NavbarProps) {
           <Link to="/" className="flex items-center gap-2">
             <img
               src="https://raw.githubusercontent.com/shirushimori/shirushimori/refs/heads/main/assets/pfp1.jpg"
-              alt="Dotrent"
+              alt="hub"
               className="h-8 w-8 rounded-lg object-cover"
             />
             <span className="hidden text-lg font-bold text-primary sm:block">
-              Dotrent
+              hub
             </span>
           </Link>
         </div>
@@ -63,7 +64,8 @@ export function Navbar({ onMenuToggle, onSearchOpen }: NavbarProps) {
           })}
         </div>
 
-        <div className="flex w-[200px] items-center justify-end gap-1">
+        <div className="flex w-[200px] items-center justify-end gap-1.5">
+          <SourceSelector />
           <button
             onClick={onSearchOpen}
             className="flex h-9 w-9 items-center justify-center rounded-lg text-secondary hover:bg-surface hover:text-primary"

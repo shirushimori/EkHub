@@ -46,10 +46,10 @@ export function MobileDrawer({ open, onClose, onSearchOpen }: MobileDrawerProps)
                 <div className="flex items-center gap-2">
                   <img
                     src="https://raw.githubusercontent.com/shirushimori/shirushimori/refs/heads/main/assets/pfp1.jpg"
-                    alt="Dotrent"
+                    alt="hub"
                     className="h-8 w-8 rounded-lg object-cover"
                   />
-                  <span className="text-lg font-bold text-primary">Dotrent</span>
+                  <span className="text-lg font-bold text-primary">hub</span>
                 </div>
                 <button
                   onClick={onClose}

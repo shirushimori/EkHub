@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { MessageCircle, Mail, X } from "lucide-react";
 
-const STORAGE_KEY = "dotrent_hide_integration_popup";
+const STORAGE_KEY = "ekhub_hide_integration_popup";
 
 export function IntegrationPopup() {
   const [show, setShow] = useState(false);

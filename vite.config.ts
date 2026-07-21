@@ -5,7 +5,7 @@ import path from "path";
 
 export default defineConfig(({ mode }) => {
   const isPages = mode === "pages";
-  const repoName = "Dotrent";
+  const repoName = "EkHub";
 
   return {
     plugins: [react(), tailwindcss()],

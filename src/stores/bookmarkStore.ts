@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { ContentItem, ContentType } from "@/types/content";
 
-const STORAGE_KEY = "dotrent_bookmarks";
+const STORAGE_KEY = "ekhub_bookmarks";
 
 export interface BookmarkItem {
   id: string;
