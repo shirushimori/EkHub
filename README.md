@@ -1,6 +1,6 @@
 # EkHub
 
-A modern streaming platform that aggregates movies, series, and anime from multiple sources — HDHub4u, 4KHub, and MyAnimeList (Jikan).
+A link indexer that aggregates movie, series, and anime links from HDHub4u, 4KHub, and MyAnimeList (Jikan). Does not host any content — only indexes links from third-party sources.
 
 ## Features
 
