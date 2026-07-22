@@ -1,32 +1,36 @@
-# React + TypeScript + Vite
+# EkHub
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A modern streaming platform that aggregates movies, series, and anime from multiple sources — HDHub4u, 4KHub, and MyAnimeList (Jikan).
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Multi-source browsing** — Switch between HDHub4u, 4KHub, or Mix mode via the navbar dropdown
+- **Download links** — Quality-sorted download packs and episode-by-episode links
+- **Screenshots & trailers** — Embedded player and screenshot gallery
+- **Bookmarks** — Save content with localStorage persistence
+- **Search** — Real-time search across all active sources
+- **Dark mode** — Mobile-first dark UI with responsive layout
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+React 19 · TypeScript · Vite · Tailwind CSS v4 · Motion · Zustand
 
-## Expanding the Oxlint configuration
+Data: HDHub4u · 4KHDHub · Jikan (MyAnimeList) · TMDB · TVMaze
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## Development
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Deployment
+
+Auto-deployed to Vercel on push to `main`.
+
+Production: [https://ekhub.vercel.app](https://ekhub.vercel.app)
+Legacy redirect: [https://dotrent.vercel.app](https://dotrent.vercel.app) → ekhub.vercel.app
+
+## License
+
+MIT
