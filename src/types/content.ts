@@ -20,6 +20,7 @@ export interface ContentItem {
   sourceId: number;
   source: "tmdb" | "tvmaze" | "scraper";
   slug?: string;
+  sourceUrl?: string;
   qualityBadges?: string[];
   seasonInfo?: string;
   formats?: string[];

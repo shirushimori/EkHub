@@ -217,6 +217,18 @@ export default function DetailPage() {
             <p className="mb-3 italic text-secondary">{d.tagline}</p>
           )}
 
+          {d.sourceUrl && (
+            <a
+              href={d.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mb-4 inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-primary transition-colors hover:border-accent/50 hover:text-accent"
+            >
+              <ExternalLink className="h-4 w-4 text-accent" />
+              View on {detailSources.find((s) => s.source === activeSource)?.label || "Original Source"}
+            </a>
+          )}
+
           {/* Meta row */}
           <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-secondary">
             {d.year && <span>{d.year}</span>}

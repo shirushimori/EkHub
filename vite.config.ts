@@ -18,6 +18,12 @@ export default defineConfig(({ mode }) => {
     build: {
       target: "es2023",
       outDir: "dist",
+      rollupOptions: {
+        input: {
+          lander: path.resolve(__dirname, "index.html"),
+          app: path.resolve(__dirname, "app/index.html"),
+        },
+      },
     },
     server: {
       proxy: {

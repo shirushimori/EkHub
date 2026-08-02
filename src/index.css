@@ -58,6 +58,12 @@
   scrollbar-color: var(--color-border) transparent;
 }
 
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -69,7 +75,7 @@
 
 ::-webkit-scrollbar-thumb {
   background: var(--color-border);
-  border-radius: 3px;
+  border-radius: 0;
 }
 
 ::-webkit-scrollbar-thumb:hover {

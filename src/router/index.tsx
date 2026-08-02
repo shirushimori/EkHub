@@ -24,11 +24,12 @@ function lazyPage(factory: () => Promise<{ default: React.ComponentType }>) {
   );
 }
 
-export const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <MainLayout />,
-    children: [
+export const router = createBrowserRouter(
+  [
+    {
+      path: "/",
+      element: <MainLayout />,
+      children: [
       {
         index: true,
         element: lazyPage(() => import("@/pages/HomePage")),
@@ -83,4 +84,6 @@ export const router = createBrowserRouter([
       },
     ],
   },
-]);
+],
+  { basename: `${import.meta.env.BASE_URL}app` }
+);

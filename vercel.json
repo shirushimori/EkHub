@@ -8,6 +8,7 @@
     { "src": "/api/hd4u/(.*)", "dest": "/api/hd4u.py" },
     { "src": "/api/hianime/(.*)", "dest": "/api/hianime.py" },
     { "handle": "filesystem" },
+    { "src": "/app(?:/(.*))?", "dest": "/app/index.html" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
