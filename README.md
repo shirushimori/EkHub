@@ -7,7 +7,7 @@ A link indexer that aggregates movie, series, and anime links from HDHub4u, 4KHu
 - **Lander** (`/`) — Static, OS-aware landing page offering "Continue to Web" or app install per platform
 - **Web App** (`/app`) — The full React indexer
 - **Native apps** — WebView wrappers built per platform (`native/`), downloadable from the lander:
-  - Android `.apk` — zero-AndroidX WebView shell, minSdk 26
+  - Android `.apk` — zero-AndroidX WebView shell, minSdk 26; blocks in-app ad popups, saves downloads into organized folders, shows a download-complete banner, and includes a built-in video player
   - Windows `.exe` — pywebview + PyInstaller launcher
   - Linux `.run` — self-extracting shell installer
 

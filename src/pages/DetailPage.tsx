@@ -9,8 +9,18 @@ import type { DownloadPack, EpisodeDownload } from "@/types/scraper";
 import type { ScraperSource } from "@/types/scraper";
 import type { TmdbWatchRegion } from "@/types/movie";
 import { BookmarkButton } from "@/components/ui/BookmarkButton";
+import { setNativeDownloadContext } from "@/lib/native";
+import type { DownloadContext } from "@/lib/native";
 
 const HIANIME_BASE = "https://hianime.lol";
+
+function notifyNativeDownload(item: MovieDetail | import("@/types/content").ContentItem, extra: Partial<DownloadContext>) {
+  setNativeDownloadContext({
+    title: item.title,
+    type: item.type,
+    ...extra,
+  });
+}
 
 function isMovieDetail(d: unknown): d is MovieDetail {
   return d != null && typeof d === "object" && "tagline" in d && "cast" in d && "videos" in d;
@@ -609,7 +619,7 @@ export default function DetailPage() {
           {/* Downloads - mobile */}
           {hasDownloads && (
             <div className="mt-6 lg:hidden">
-              <DownloadSection downloads={downloads} episodeDownloads={episodeDownloads} />
+              <DownloadSection item={d} downloads={downloads} episodeDownloads={episodeDownloads} />
             </div>
           )}
         </div>
@@ -618,7 +628,7 @@ export default function DetailPage() {
         {hasDownloads && (
           <div className="hidden lg:block">
             <div className="sticky top-20">
-              <DownloadSection downloads={downloads} episodeDownloads={episodeDownloads} />
+              <DownloadSection item={d} downloads={downloads} episodeDownloads={episodeDownloads} />
             </div>
           </div>
         )}
@@ -630,9 +640,11 @@ export default function DetailPage() {
 // ── Download Section ──────────────────────────────────────
 
 function DownloadSection({
+  item,
   downloads,
   episodeDownloads,
 }: {
+  item: MovieDetail | import("@/types/content").ContentItem;
   downloads?: DownloadPack[];
   episodeDownloads?: EpisodeDownload[];
 }) {
@@ -702,11 +714,11 @@ function DownloadSection({
               )}
 
               {hasDefaultPack && fmtMap!.get("default")!.map((dl, i) => (
-                <PackItem key={`p-${season}-${i}`} dl={dl} />
+                <PackItem key={`p-${season}-${i}`} item={item} dl={dl} />
               ))}
 
               {hasDefaultEp && epFmtMap!.get("default")!.map((ep, i) => (
-                <EpisodeItem key={`e-${season}-${i}`} ep={ep} />
+                <EpisodeItem key={`e-${season}-${i}`} item={item} ep={ep} />
               ))}
 
               {formats.map((format) => (
@@ -718,11 +730,11 @@ function DownloadSection({
                   </div>
 
                   {fmtMap?.get(format)?.map((dl, i) => (
-                    <PackItem key={`p-${season}-${format}-${i}`} dl={dl} />
+                    <PackItem key={`p-${season}-${format}-${i}`} item={item} dl={dl} />
                   ))}
 
                   {epFmtMap?.get(format)?.map((ep, i) => (
-                    <EpisodeItem key={`e-${season}-${format}-${i}`} ep={ep} />
+                    <EpisodeItem key={`e-${season}-${format}-${i}`} item={item} ep={ep} />
                   ))}
                 </div>
               ))}
@@ -736,7 +748,7 @@ function DownloadSection({
 
 // ── Pack Item ──────────────────────────────────────────────
 
-function PackItem({ dl }: { dl: DownloadPack }) {
+function PackItem({ item, dl }: { item: MovieDetail | import("@/types/content").ContentItem; dl: DownloadPack }) {
   return (
     <details className="group border-b border-border">
       <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 transition-colors hover:bg-surface/50">
@@ -777,6 +789,7 @@ function PackItem({ dl }: { dl: DownloadPack }) {
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => notifyNativeDownload(item, { season: dl.season, fileName: link.label })}
               className="flex items-center justify-between rounded-lg bg-accent/10 px-3 py-2 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
             >
               <span className="truncate">{link.label}</span>
@@ -791,7 +804,7 @@ function PackItem({ dl }: { dl: DownloadPack }) {
 
 // ── Episode Item ──────────────────────────────────────────
 
-function EpisodeItem({ ep }: { ep: EpisodeDownload }) {
+function EpisodeItem({ item, ep }: { item: MovieDetail | import("@/types/content").ContentItem; ep: EpisodeDownload }) {
   return (
     <details className="group border-b border-border">
       <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 transition-colors hover:bg-surface/50">
@@ -851,6 +864,13 @@ function EpisodeItem({ ep }: { ep: EpisodeDownload }) {
                       href={link.url}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() =>
+                        notifyNativeDownload(item, {
+                          season: ep.season,
+                          episode: ep.episode,
+                          fileName: ep.title,
+                        })
+                      }
                       className="flex items-center justify-between rounded-lg bg-accent/10 px-3 py-1.5 text-[11px] font-medium text-accent transition-colors hover:bg-accent/20"
                     >
                       <span className="truncate">{link.label}</span>

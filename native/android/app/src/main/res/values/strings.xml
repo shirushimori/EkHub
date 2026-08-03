@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">EkHub</string>
+    <string name="download_complete">Download complete</string>
+    <string name="view">View</string>
+    <string name="close">Close</string>
+    <string name="player_unable_to_play">Could not play this file.</string>
+    <string name="player_missing_file">File not found.</string>
 </resources>

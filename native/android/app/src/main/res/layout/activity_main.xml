@@ -17,4 +17,6 @@
         android:max="100"
         android:progressTint="@color/accent"
         android:visibility="gone" />
+
+    <include layout="@layout/view_download_banner" />
 </FrameLayout>

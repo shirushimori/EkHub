@@ -38,8 +38,23 @@ on a machine with the Android SDK + JDK 17 + Gradle 8.9 — outputs
 
 Zero AndroidX dependencies — plain framework WebView — so the APK stays tiny
 and runs fine on low-end devices. In-app pages stay on `ekhub.vercel.app`;
-every external link (watch players, download mirrors) opens in the default
-browser so nothing ever dead-ends.
+watch players and download mirrors load in-app so the whole flow works without
+leaving the app:
+
+- **Ad blocking** — known ad/tracker hosts are blocked at the WebView layer
+  (navigations, new windows) *and* client-side via injected JS that stops
+  scripted popups, `target=_blank` ad links, and hides ad containers.
+  Popups the players throw up when you hit play never open.
+- **Downloads** — when you pick a download link, the mirror's procedure opens
+  in-app; the finished file is captured by Android's DownloadManager and saved
+  into an organized, app-private tree (no storage permission needed):
+  `Movies/<Title>/<file>` or `Series/<Title>/Season <n>/<file>`.
+- **Download-complete banner** — a Crunchyroll-style banner slides up when a
+  download finishes; "View" opens the built-in video player
+  (`PlayerActivity`) for video files.
+
+The web app pushes download metadata (title/season/episode) to the shell over
+the `EkHubNative` JS bridge so files land in the right folder.
 
 **Signing:** the release build signs with the debug keystore by default so
 every build is installable. For a real release key, create
