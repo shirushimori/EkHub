@@ -37,8 +37,8 @@ npm run dev
 
 Auto-deployed to Vercel on push to `main`.
 
-Production: [https://dotrent.vercel.app](https://dotrent.vercel.app)
-Legacy: [https://ekhub.vercel.app](https://ekhub.vercel.app)
+Production: [https://ekhub.vercel.app](https://ekhub.vercel.app)
+Legacy redirect: [https://dotrent.vercel.app](https://dotrent.vercel.app) → ekhub.vercel.app
 
 ### Native builds
 

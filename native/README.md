@@ -37,7 +37,7 @@ on a machine with the Android SDK + JDK 17 + Gradle 8.9 — outputs
 `app/build/outputs/apk/release/app-release.apk`).
 
 Zero AndroidX dependencies — plain framework WebView — so the APK stays tiny
-and runs fine on low-end devices. In-app pages stay on `dotrent.vercel.app`;
+and runs fine on low-end devices. In-app pages stay on `ekhub.vercel.app`;
 watch players and download mirrors load in-app so the whole flow works without
 leaving the app:
 
