@@ -29,7 +29,7 @@ import org.json.JSONObject
 /**
  * Thin WebView shell around the EkHub web app.
  *
- * - Stays on ekhub.vercel.app.
+ * - Stays on dotrent.vercel.app.
  * - Watch players and download mirrors load in-app so the whole flow works
  *   without leaving the app; ad/tracker popups and new-tab ad windows are
  *   blocked (native + injected JS).
@@ -41,8 +41,8 @@ import org.json.JSONObject
  */
 class MainActivity : Activity() {
 
-    private val homeUrl = "https://ekhub.vercel.app"
-    private val appHost = "ekhub.vercel.app"
+    private val homeUrl = "https://dotrent.vercel.app"
+    private val appHost = "dotrent.vercel.app"
 
     private lateinit var webView: WebView
     private lateinit var repo: DownloadRepository

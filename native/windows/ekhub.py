@@ -7,7 +7,7 @@ falls back to the default browser so the app never silently breaks.
 import os
 import sys
 
-URL = os.environ.get("EKHUB_URL", "https://ekhub.vercel.app")
+URL = os.environ.get("EKHUB_URL", "https://dotrent.vercel.app")
 
 
 def main():

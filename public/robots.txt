@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://ekhub.vercel.app/sitemap.xml
+Sitemap: https://dotrent.vercel.app/sitemap.xml
