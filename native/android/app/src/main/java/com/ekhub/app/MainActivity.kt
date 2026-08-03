@@ -41,7 +41,7 @@ import org.json.JSONObject
  */
 class MainActivity : Activity() {
 
-    private val homeUrl = "https://ekhub.vercel.app"
+    private val homeUrl = "https://ekhub.vercel.app/app"
     private val appHost = "ekhub.vercel.app"
 
     private lateinit var webView: WebView

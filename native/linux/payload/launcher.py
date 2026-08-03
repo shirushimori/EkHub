@@ -8,7 +8,7 @@ import os
 import sys
 import webbrowser
 
-URL = os.environ.get("EKHUB_URL", "https://ekhub.vercel.app")
+URL = os.environ.get("EKHUB_URL", "https://ekhub.vercel.app/app")
 
 try:
     import tkinter as tk

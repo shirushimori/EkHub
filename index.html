@@ -281,8 +281,7 @@
       };
 
       (function () {
-        // Inside the EkHub native app (WebView exposes the EkHubNative bridge) —
-        // never show the download page here, go straight to the app.
+        // Native apps go straight to the app itself, never the landing page.
         if (window.EkHubNative) {
           location.replace("/app");
           return;
@@ -290,15 +289,13 @@
 
         var ua = navigator.userAgent || "";
         var isAndroid = /Android/i.test(ua);
-
-        // Android browsers land on this download page.
+        var key = isAndroid ? "android" : "other";
         if (!isAndroid) {
-          location.replace("/app");
-          return;
+          if (/iPhone|iPad|iPod/i.test(ua)) key = "ios";
+          else if (/Windows/i.test(ua)) key = "windows";
+          else if (/Mac/i.test(ua)) key = "macos";
+          else if (/Linux/i.test(ua)) key = "linux";
         }
-
-        var isMobile = true;
-        var key = "android";
 
         var app = APPS[key];
         var btn = document.getElementById("install-btn");
@@ -309,17 +306,23 @@
           btn.href = app.url;
           label.textContent = app.label;
           btn.setAttribute("data-os", key);
-          btn.classList.add("primary");
-          btn.classList.remove("ghost");
+          if (isAndroid) {
+            btn.classList.add("primary");
+            btn.classList.remove("ghost");
+          }
         }
-        var webBtn = document.querySelector(".cta .btn.primary");
-        if (webBtn) {
-          webBtn.classList.remove("primary");
-          webBtn.classList.add("ghost");
+        if (isAndroid) {
+          var webBtn = document.querySelector(".cta .btn.primary");
+          if (webBtn) {
+            webBtn.classList.remove("primary");
+            webBtn.classList.add("ghost");
+          }
+          if (steps) steps.hidden = false;
         }
-        if (steps) steps.hidden = false;
         if (hint) {
-          hint.textContent = "EkHub is available as a native Android app — tap below to download the APK.";
+          hint.textContent = isAndroid
+            ? "EkHub is available as a native Android app — tap below to download the APK."
+            : "Available for " + key.charAt(0).toUpperCase() + key.slice(1) + ". Choose install or continue on the web.";
         }
       })();
     </script>
