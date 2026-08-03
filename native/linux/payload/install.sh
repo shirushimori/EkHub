@@ -9,6 +9,7 @@ mkdir -p "$DEST" "$HOME/.local/share/applications"
 
 cp "$SRC/launcher.py" "$BIN"
 chmod +x "$BIN"
+cp "$SRC/bootstrap.py" "$DEST/bootstrap.py"
 cp "$SRC/icon.svg" "$DEST/icon.svg"
 
 sed -e "s|@BIN@|$BIN|g" -e "s|@ICON@|$DEST/icon.svg|g" "$SRC/ekhub.desktop" > "$HOME/.local/share/applications/EkHub.desktop"

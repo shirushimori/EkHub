@@ -156,23 +156,51 @@ class MainActivity : Activity() {
         return handleNavigation(url)
     }
 
-    private fun handleNavigation(url: String): Boolean {
-        val uri = Uri.parse(url)
-        val host = uri.host ?: return false
-        if (host == appHost || host.endsWith(".vercel.app")) return false
+    /** Domains allowed to load inside the app's WebView. Everything else opens externally. */
+    private val whitelistHosts = setOf(
+        "4khdhub.one",
+        "new3.hdhub4u.cl",
+        "hdhub4u.cl",
+        "hdhub4u.mov",
+        "hdhub4u.ws",
+        "hdhub4u.pics",
+        "hdhub4u.mx",
+        "hianime.lol",
+        "youtube.com",
+        "www.youtube.com",
+        "m.youtube.com",
+        "youtu.be",
+        "youtube-nocookie.com",
+        "image.tmdb.org",
+    )
 
-        val scheme = uri.scheme?.lowercase()
-        if (scheme != "http" && scheme != "https") {
-            runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
-            return true
-        }
-
-        // Everything else loads in-app: watch players and download-mirror
-        // procedures keep working, and ads get filtered before they spawn.
+    private fun isWhitelisted(host: String): Boolean {
+        if (host == appHost || host.endsWith(".vercel.app")) return true
+        if (host in whitelistHosts) return true
+        if (host.endsWith(".4khdhub.one") || host.endsWith(".hdhub4u.cl")) return true
         return false
     }
 
-    /** target=_blank / window.open: block ad popups, route everything else into the main WebView. */
+    private fun openExternal(uri: Uri) {
+        runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+    }
+
+    private fun handleNavigation(url: String): Boolean {
+        val uri = Uri.parse(url)
+        val host = uri.host?.lowercase() ?: return false
+        val scheme = uri.scheme?.lowercase()
+        if (scheme != "http" && scheme != "https") {
+            openExternal(uri)
+            return true
+        }
+        // Whitelisted tabs (watch players, download mirrors, media sites)
+        // load in our WebView; everything else goes to the external browser.
+        if (isWhitelisted(host)) return false
+        openExternal(uri)
+        return true
+    }
+
+    /** target=_blank / window.open: block ad popups, route whitelisted tabs into the main WebView. */
     private fun handleNewWindow(resultMsg: Message): Boolean {
         val transport = resultMsg.obj as? WebView.WebViewTransport ?: return false
         val dummy = WebView(this)
@@ -180,14 +208,25 @@ class MainActivity : Activity() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url.toString()
                 if (AdBlocker.isAd(url)) return true
-                webView.loadUrl(url)
+                val host = request.url.host?.lowercase()
+                if (host != null && isWhitelisted(host)) {
+                    webView.loadUrl(url)
+                    return true
+                }
+                openExternal(request.url)
                 return true
             }
 
             @Deprecated("Deprecated in Java")
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
                 if (AdBlocker.isAd(url)) return true
-                webView.loadUrl(url)
+                val uri = Uri.parse(url)
+                val host = uri.host?.lowercase()
+                if (host != null && isWhitelisted(host)) {
+                    webView.loadUrl(url)
+                    return true
+                }
+                openExternal(uri)
                 return true
             }
         }

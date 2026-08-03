@@ -7,7 +7,7 @@ APP_NAME = "EkHub"
 
 a = Analysis(
     ["ekhub.py"],
-    pathex=[],
+    pathex=[os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")],
     binaries=[],
     datas=[],
     hiddenimports=[],

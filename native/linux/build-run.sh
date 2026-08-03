@@ -12,7 +12,12 @@ mkdir -p "$DIST"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-tar -C "$PAYLOAD" -czf "$TMP/payload.tgz" .
+STAGE="$TMP/stage"
+mkdir -p "$STAGE"
+cp -r "$PAYLOAD/." "$STAGE/"
+cp "$HERE/../bootstrap.py" "$STAGE/bootstrap.py"
+
+tar -C "$STAGE" -czf "$TMP/payload.tgz" .
 
 { cat "$HERE/run-stub.sh"; cat "$TMP/payload.tgz"; } > "$OUT"
 chmod +x "$OUT"

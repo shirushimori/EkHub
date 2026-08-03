@@ -37,3 +37,4 @@ native/android/keystore.properties
 native/windows/build
 native/windows/dist
 native/linux/payload.tgz
+.env*
