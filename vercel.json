@@ -7,7 +7,6 @@
     { "src": "/api/scraper/(.*)", "dest": "/api/scraper.py" },
     { "src": "/api/hd4u/(.*)", "dest": "/api/hd4u.py" },
     { "src": "/api/hianime/(.*)", "dest": "/api/hianime.py" },
-    { "src": "/", "statusCode": 308, "headers": { "Location": "/app" } },
     { "handle": "filesystem" },
     { "src": "/app(?:/(.*))?", "dest": "/app/index.html" },
     { "src": "/(.*)", "dest": "/index.html" }

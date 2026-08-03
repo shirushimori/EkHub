@@ -92,6 +92,10 @@
 
       .os-hint { text-align: center; margin-top: 14px; font-size: 13px; color: var(--muted); }
 
+      .android-steps ul { list-style: none; margin: 26px auto 0; max-width: 480px; text-align: left; }
+      .android-steps li { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-top: 1px solid var(--border); font-size: 14px; color: var(--text-dim); }
+      .android-steps li span { flex-shrink: 0; font-weight: 700; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--accent); width: 78px; }
+
       .sources { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 40px; }
       .sources .src {
         font-size: 13px; color: var(--text-dim); border: 1px solid var(--border);
@@ -173,6 +177,14 @@
           </div>
 
           <p class="os-hint" id="os-hint">Detecting your platform…</p>
+
+          <div class="android-steps" id="android-steps" hidden>
+            <ul>
+              <li><span>Download</span>Tap "Install for Android" above to download the APK.</li>
+              <li><span>Allow</span>If prompted, allow installs from unknown sources.</li>
+              <li><span>Install</span>Open the downloaded file and follow the install steps.</li>
+            </ul>
+          </div>
 
           <div class="sources">
             <span class="src">HDHub4u</span>
@@ -260,7 +272,7 @@
     <script>
       // App download URLs — these artifacts are built by the "Build native apps" CI on tag push.
       var APPS = {
-        android: { label: "Install for Android", url: "https://github.com/shirushimori/EkHub/releases/latest/download/EkHub.apk" },
+        android: { label: "Install for Android", url: "https://github.com/shirushimori/EkHub/releases/latest/download/app-release.apk" },
         ios: { label: "Install for iPhone/iPad", url: "https://github.com/shirushimori/EkHub/releases/latest/download/EkHub.ipa" },
         windows: { label: "Install for Windows", url: "https://github.com/shirushimori/EkHub/releases/latest/download/EkHub.exe" },
         macos: { label: "Install for macOS", url: "https://github.com/shirushimori/EkHub/releases/latest/download/EkHub.dmg" },
@@ -269,28 +281,45 @@
       };
 
       (function () {
+        // Inside the EkHub native app (WebView exposes the EkHubNative bridge) —
+        // never show the download page here, go straight to the app.
+        if (window.EkHubNative) {
+          location.replace("/app");
+          return;
+        }
+
         var ua = navigator.userAgent || "";
-        var isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(ua);
-        var key = "other";
-        if (/Android/i.test(ua)) key = "android";
-        else if (/iPhone|iPad|iPod/i.test(ua)) key = "ios";
-        else if (/Windows/i.test(ua) && !/Android/i.test(ua)) key = "windows";
-        else if (/Mac/i.test(ua)) key = "macos";
-        else if (/Linux/i.test(ua)) key = "linux";
+        var isAndroid = /Android/i.test(ua);
+
+        // Android browsers land on this download page.
+        if (!isAndroid) {
+          location.replace("/app");
+          return;
+        }
+
+        var isMobile = true;
+        var key = "android";
 
         var app = APPS[key];
         var btn = document.getElementById("install-btn");
         var label = document.getElementById("install-label");
         var hint = document.getElementById("os-hint");
+        var steps = document.getElementById("android-steps");
         if (app && btn) {
           btn.href = app.url;
           label.textContent = app.label;
           btn.setAttribute("data-os", key);
+          btn.classList.add("primary");
+          btn.classList.remove("ghost");
         }
+        var webBtn = document.querySelector(".cta .btn.primary");
+        if (webBtn) {
+          webBtn.classList.remove("primary");
+          webBtn.classList.add("ghost");
+        }
+        if (steps) steps.hidden = false;
         if (hint) {
-          hint.textContent = isMobile
-            ? "Install the EkHub app on this device, or continue on the web."
-            : "Available for " + key.charAt(0).toUpperCase() + key.slice(1) + ". Choose install or continue on the web.";
+          hint.textContent = "EkHub is available as a native Android app — tap below to download the APK.";
         }
       })();
     </script>
