@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.os.Message
 import android.provider.Settings
 import android.view.View
+import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -20,6 +21,7 @@ import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ProgressBar
+import android.widget.Toast
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
@@ -71,6 +73,7 @@ class MainActivity : Activity() {
     private lateinit var btnHome: ImageButton
     private lateinit var btnBack: ImageButton
     private lateinit var btnForward: ImageButton
+    private lateinit var btnDownloads: ImageButton
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -82,6 +85,7 @@ class MainActivity : Activity() {
         btnHome = findViewById(R.id.btn_home)
         btnBack = findViewById(R.id.btn_back)
         btnForward = findViewById(R.id.btn_forward)
+        btnDownloads = findViewById(R.id.btn_downloads)
 
         btnHome.setOnClickListener { activeTab()?.webView?.loadUrl(homeUrl) }
         btnBack.setOnClickListener {
@@ -92,10 +96,24 @@ class MainActivity : Activity() {
             val wv = activeTab()?.webView ?: return@setOnClickListener
             if (wv.canGoForward()) wv.goForward()
         }
+        btnDownloads.setOnClickListener { openDownloads() }
 
         loadWhitelist()
         addTab(homeUrl)
         checkForUpdate()
+
+        val openUrl = intent?.getStringExtra("open_url")
+        if (openUrl != null && isAllowed(Uri.parse(openUrl))) {
+            addTab(openUrl)
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        val openUrl = intent.getStringExtra("open_url")
+        if (openUrl != null && isAllowed(Uri.parse(openUrl))) {
+            addTab(openUrl)
+        }
     }
 
     override fun onDestroy() {
@@ -216,7 +234,43 @@ class MainActivity : Activity() {
             }
         }
 
+        wv.addJavascriptInterface(EkHubNativeBridge(), "EkHubNative")
+
         return wv
+    }
+
+    // ── native bridge ────────────────────────────────────────────────────
+
+    /** Receives download context from the web app and queues it (prototype). */
+    private inner class EkHubNativeBridge {
+        @JavascriptInterface
+        fun setDownloadContext(json: String) {
+            runCatching {
+                val o = JSONObject(json)
+                val entry = DownloadEntry(
+                    id = DownloadStore.newId(),
+                    title = o.optString("title", ""),
+                    type = o.optString("type", ""),
+                    season = o.optString("season", ""),
+                    episode = o.optString("episode", ""),
+                    fileName = o.optString("fileName", ""),
+                    url = o.optString("url", ""),
+                    addedAt = System.currentTimeMillis()
+                )
+                DownloadStore.add(this@MainActivity, entry)
+                runOnUiThread {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Added to downloads",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
+
+    private fun openDownloads() {
+        startActivity(Intent(this, DownloadsActivity::class.java))
     }
 
     // ── whitelist ─────────────────────────────────────────────────────────

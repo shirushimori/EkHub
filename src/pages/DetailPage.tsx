@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router";
-import { ArrowLeft, Star, Play, ExternalLink, ChevronDown, Download, Globe, X, Camera, BookOpen, MessageSquare, MonitorSmartphone, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Star, Play, ExternalLink, ChevronDown, Download, Globe, X, Camera, BookOpen, MessageSquare, MonitorSmartphone, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useContentStore } from "@/stores/contentStore";
 import { posterUrl, typeLabel, type MovieDetail } from "@/types/content";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -35,6 +35,7 @@ export default function DetailPage() {
   const { detail, detailSources, activeSource, loading, error, fetchDetail, switchSource } = useContentStore();
   const [showSourceDropdown, setShowSourceDropdown] = useState(false);
   const [showPlayer, setShowPlayer] = useState(false);
+  const [playerLoading, setPlayerLoading] = useState(false);
   const [watchProviders, setWatchProviders] = useState<TmdbWatchRegion | null>(null);
   const [showWatchLinkPlayer, setShowWatchLinkPlayer] = useState(false);
   const [activeWatchLink, setActiveWatchLink] = useState<{ label: string; url: string } | null>(null);
@@ -155,12 +156,19 @@ export default function DetailPage() {
             >
               <X className="h-5 w-5" />
             </button>
-            <div className="aspect-video overflow-hidden rounded-xl bg-black shadow-2xl">
+            <div className="relative aspect-video overflow-hidden rounded-xl bg-black shadow-2xl">
+              {playerLoading && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black">
+                  <Loader2 className="h-8 w-8 animate-spin text-accent" />
+                  <span className="text-xs text-secondary">Loading player…</span>
+                </div>
+              )}
               <iframe
                 src={embeddedPlayerUrl}
                 className="h-full w-full"
                 allowFullScreen
                 allow="autoplay; encrypted-media"
+                onLoad={() => setPlayerLoading(false)}
               />
             </div>
           </div>
@@ -404,9 +412,13 @@ export default function DetailPage() {
             animeSearchUrl={
               isAnimeSource(d) ? `${HIANIME_BASE}/search?keyword=${encodeURIComponent(d.title)}` : ""
             }
-            onPlayEmbedded={() => setShowPlayer(true)}
+            onPlayEmbedded={() => {
+              setPlayerLoading(true);
+              setShowPlayer(true);
+            }}
             onPlayWatchLink={(link) => {
               setActiveWatchLink(link);
+              setPlayerLoading(true);
               setShowWatchLinkPlayer(true);
             }}
           />
@@ -421,13 +433,20 @@ export default function DetailPage() {
                 >
                   <X className="h-5 w-5" />
                 </button>
-                <div className="aspect-video overflow-hidden rounded-xl bg-black shadow-2xl">
+                <div className="relative aspect-video overflow-hidden rounded-xl bg-black shadow-2xl">
+                  {playerLoading && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black">
+                      <Loader2 className="h-8 w-8 animate-spin text-accent" />
+                      <span className="text-xs text-secondary">Loading player…</span>
+                    </div>
+                  )}
                   <iframe
                     src={activeWatchLink.url}
                     className="h-full w-full border-0"
                     allowFullScreen
                     allow="autoplay; encrypted-media"
                     referrerPolicy="no-referrer"
+                    onLoad={() => setPlayerLoading(false)}
                   />
                 </div>
                 <p className="mt-2 text-center text-xs text-secondary">
@@ -697,52 +716,53 @@ function WatchSection({
               {episodeDownloads.length}
             </span>
           </div>
-          <div className="max-h-[calc(100dvh-6rem)] overflow-y-auto">
-            {episodeDownloads.map((ep) => {
-              const watches = ep.watchLinks || [];
-              const files = ep.downloads || [];
-              return (
-                <details
-                  key={`${ep.season}-${ep.episode}-${ep.title}`}
-                  className="group border-b border-border"
-                >
-                  <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 transition-colors hover:bg-surface/50">
-                    {ep.episode && (
-                      <span className="shrink-0 rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent">
-                        {ep.episode}
+          <div className="max-h-[calc(100dvh-6rem)] overflow-y-auto p-3">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+              {episodeDownloads.map((ep) => {
+                const watches = ep.watchLinks || [];
+                const files = ep.downloads || [];
+                return (
+                  <div
+                    key={`${ep.season}-${ep.episode}-${ep.title}`}
+                    className="flex flex-col gap-2 rounded-xl border border-border bg-surface/40 p-2.5"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {ep.episode && (
+                        <span className="shrink-0 rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent">
+                          {ep.episode}
+                        </span>
+                      )}
+                      <span className="truncate text-[11px] font-medium leading-snug text-primary" title={ep.title}>
+                        {ep.title}
                       </span>
-                    )}
-                    <span className="flex-1 truncate text-xs font-medium leading-snug text-primary">
-                      {ep.title}
-                    </span>
-                    {watches.length > 0 && (
-                      <span className="shrink-0 rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-semibold text-accent">
-                        Watch
-                      </span>
-                    )}
-                    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-secondary transition-transform group-open:rotate-180" />
-                  </summary>
+                    </div>
 
-                  <div className="border-t border-border/50 bg-surface/30 px-4 pb-3 pt-3">
                     {watches.length > 0 && (
-                      <div className="mb-3 flex flex-wrap gap-2">
-                        {watches.map((link, k) => (
-                          <a
+                      <button
+                        onClick={() => onPlayWatchLink(watches[0])}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-accent-hover"
+                      >
+                        <Play className="h-3.5 w-3.5 fill-white" />
+                        Watch {watches[0].label && watches[0].label !== "WATCH" ? watches[0].label : "Now"}
+                      </button>
+                    )}
+
+                    {watches.length > 1 && (
+                      <div className="flex flex-wrap gap-1">
+                        {watches.slice(1).map((link, k) => (
+                          <button
                             key={k}
-                            href={link.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-accent-hover"
+                            onClick={() => onPlayWatchLink(link)}
+                            className="rounded-md bg-white/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-white/20"
                           >
-                            <Play className="h-3.5 w-3.5 fill-white" />
-                            Watch {link.label && link.label !== "WATCH" ? link.label : "Now"}
-                          </a>
+                            {link.label && link.label !== "WATCH" ? link.label : "Watch"}
+                          </button>
                         ))}
                       </div>
                     )}
 
                     {files.map((file, fi) => (
-                      <div key={fi} className="mb-3 last:mb-0">
+                      <div key={fi} className="border-t border-border/50 pt-2 first:border-t-0 first:pt-0">
                         <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
                           <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-400">
                             {file.quality || file.title || "Download"}
@@ -758,7 +778,7 @@ function WatchSection({
                             </span>
                           )}
                         </div>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-1">
                           {file.links.map((link, li) => (
                             <a
                               key={li}
@@ -770,12 +790,13 @@ function WatchSection({
                                   season: ep.season,
                                   episode: ep.episode,
                                   fileName: ep.title,
+                                  url: link.url,
                                 })
                               }
-                              className="inline-flex items-center gap-1 rounded-lg bg-accent/10 px-3 py-1.5 text-[11px] font-medium text-accent transition-colors hover:bg-accent/20"
+                              className="inline-flex items-center gap-1 rounded-lg bg-accent/10 px-2 py-1 text-[10px] font-medium text-accent transition-colors hover:bg-accent/20"
                             >
                               {link.label}
-                              <ExternalLink className="h-3 w-3 shrink-0" />
+                              <ExternalLink className="h-2.5 w-2.5 shrink-0" />
                             </a>
                           ))}
                         </div>
@@ -783,12 +804,12 @@ function WatchSection({
                     ))}
 
                     {watches.length === 0 && files.length === 0 && (
-                      <p className="text-xs text-secondary">No links available.</p>
+                      <p className="text-[10px] text-secondary">No links available.</p>
                     )}
                   </div>
-                </details>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -924,7 +945,7 @@ function PackItem({ item, dl }: { item: MovieDetail | import("@/types/content").
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => notifyNativeDownload(item, { season: dl.season, fileName: link.label })}
+              onClick={() => notifyNativeDownload(item, { season: dl.season, fileName: link.label, url: link.url })}
               className="flex items-center justify-between rounded-lg bg-accent/10 px-3 py-2 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
             >
               <span className="truncate">{link.label}</span>

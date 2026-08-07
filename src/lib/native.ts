@@ -10,6 +10,8 @@ export interface DownloadContext {
   episode?: string;
   /** Hint for the saved file name (fallback only). */
   fileName?: string;
+  /** The link the user tapped, so the native download manager can queue it. */
+  url?: string;
 }
 
 interface NativeBridge {

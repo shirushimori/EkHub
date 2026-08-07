@@ -96,6 +96,11 @@ export default function SearchPage() {
             Powered by 4KHDHub
           </p>
         </div>
+      ) : loading && results.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16">
+          <Loader2 className="mb-3 h-8 w-8 animate-spin text-accent" />
+          <p className="text-sm text-secondary">Searching for “{query}”…</p>
+        </div>
       ) : error && results.length === 0 ? (
         <EmptyState
           icon={<Search className="h-12 w-12" />}
