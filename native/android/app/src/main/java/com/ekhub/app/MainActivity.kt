@@ -15,33 +15,48 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
-import android.widget.HorizontalScrollView
 import android.widget.ImageButton
-import android.widget.LinearLayout
 import android.widget.ProgressBar
-import android.widget.TextView
+import java.net.HttpURLConnection
+import java.net.URL
 
 /**
- * WebView shell around the EkHub web app with a browser-style tab system.
+ * Whitelist-driven WebView shell around the EkHub web app.
  *
- * - Each tab owns its own [WebView] and tab chip; the active tab's WebView is
- *   the one attached to the view hierarchy.
+ * - Only hosts listed in whitelist.txt load inside the app. The whitelist is
+ *   served from GitHub raw, cached locally, and falls back to a bundled copy.
+ * - Links to whitelisted hosts open in a new tab (no tab UI: back / Home
+ *   navigate; closing the top tab lands on the previous one).
+ * - Everything not whitelisted goes to the external browser.
  * - Home / Back / Forward toolbar controls the active tab.
- * - Links that leave the app host open in the external browser.
  */
 class MainActivity : Activity() {
 
     private val homeUrl = "https://ekhub.vercel.app/app"
     private val appHost = "ekhub.vercel.app"
+    private val whitelistUrl = "https://raw.githubusercontent.com/shirushimori/EkHub/main/whitelist.txt"
 
-    private class Tab(val webView: WebView, val chip: View, val titleView: TextView)
+    private val defaultWhitelist = """
+        ekhub.vercel.app
+        hdhub4u
+        4khdhub
+        hubcloud
+        hubdrive
+        gamerxyt
+        hubstream.art
+        greenmountmotors.com
+        player.videasy.net
+        player.autoembed.cc
+        image.tmdb.org
+    """.trimIndent()
+
+    private class Tab(val webView: WebView)
 
     private val tabs = ArrayList<Tab>()
     private var activeIndex = -1
+    private val whitelist = HashSet<String>()
 
     private lateinit var webContainer: FrameLayout
-    private lateinit var tabContainer: LinearLayout
-    private lateinit var tabScroll: HorizontalScrollView
     private lateinit var progress: ProgressBar
     private lateinit var btnHome: ImageButton
     private lateinit var btnBack: ImageButton
@@ -53,8 +68,6 @@ class MainActivity : Activity() {
         setContentView(R.layout.activity_main)
 
         webContainer = findViewById(R.id.web_container)
-        tabContainer = findViewById(R.id.tab_container)
-        tabScroll = findViewById(R.id.tab_scroll)
         progress = findViewById(R.id.progress)
         btnHome = findViewById(R.id.btn_home)
         btnBack = findViewById(R.id.btn_back)
@@ -69,8 +82,8 @@ class MainActivity : Activity() {
             val wv = activeTab()?.webView ?: return@setOnClickListener
             if (wv.canGoForward()) wv.goForward()
         }
-        findViewById<View>(R.id.btn_new_tab).setOnClickListener { addTab(homeUrl) }
 
+        loadWhitelist()
         addTab(homeUrl)
     }
 
@@ -87,18 +100,9 @@ class MainActivity : Activity() {
     private fun addTab(url: String) {
         val index = tabs.size
         val webView = createWebView()
-        val chip = layoutInflater.inflate(R.layout.view_tab_chip, tabContainer, false)
-        val titleView = chip.findViewById<TextView>(R.id.tab_title)
-        titleView.text = getString(R.string.app_name)
-
-        chip.setOnClickListener { selectTab(index) }
-        chip.findViewById<View>(R.id.tab_close).setOnClickListener { closeTab(index) }
-
-        tabs.add(Tab(webView, chip, titleView))
-        tabContainer.addView(chip)
+        tabs.add(Tab(webView))
         selectTab(index)
         webView.loadUrl(url)
-        tabScroll.post { tabScroll.fullScroll(View.FOCUS_RIGHT) }
     }
 
     private fun selectTab(index: Int) {
@@ -109,7 +113,6 @@ class MainActivity : Activity() {
         }
         activeIndex = index
         webContainer.addView(tabs[index].webView)
-        updateChips()
         updateToolbar()
     }
 
@@ -118,7 +121,6 @@ class MainActivity : Activity() {
         val closingActive = index == activeIndex
         val oldActive = activeIndex
         val tab = tabs.removeAt(index)
-        tabContainer.removeView(tab.chip)
         webContainer.removeView(tab.webView)
         runCatching { tab.webView.destroy() }
 
@@ -127,17 +129,9 @@ class MainActivity : Activity() {
             selectTab(if (index >= tabs.size) tabs.size - 1 else index)
         } else {
             if (index < oldActive) activeIndex -= 1
-            updateChips()
             updateToolbar()
         }
     }
-
-    private fun updateChips() {
-        for (i in tabs.indices) tabs[i].chip.isSelected = (i == activeIndex)
-    }
-
-    private fun indexOfWebView(wv: WebView): Int =
-        tabs.indexOfFirst { it.webView === wv }
 
     // ── WebView creation ──────────────────────────────────────────────────
 
@@ -158,18 +152,37 @@ class MainActivity : Activity() {
 
         wv.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                return handleUrl(request.url)
+                val uri = request.url
+                if (!isAllowed(uri)) {
+                    if (request.isForMainFrame) openExternal(uri)
+                    return true
+                }
+                if (!request.isForMainFrame) return false
+                val currentHost = view.url?.let { Uri.parse(it).host?.lowercase() }
+                if (currentHost != null && uri.host?.lowercase() != currentHost) {
+                    addTab(uri.toString())
+                    return true
+                }
+                return false
             }
 
             @Deprecated("Deprecated in Java")
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-                return handleUrl(Uri.parse(url))
+                val uri = Uri.parse(url)
+                if (!isAllowed(uri)) {
+                    openExternal(uri)
+                    return true
+                }
+                val currentHost = view.url?.let { Uri.parse(it).host?.lowercase() }
+                if (currentHost != null && uri.host?.lowercase() != currentHost) {
+                    addTab(uri.toString())
+                    return true
+                }
+                return false
             }
 
             override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
                 progress.visibility = View.VISIBLE
-                val i = indexOfWebView(view)
-                if (i >= 0) tabs[i].titleView.text = Uri.parse(url).host ?: getString(R.string.app_name)
                 updateToolbar()
             }
 
@@ -188,11 +201,6 @@ class MainActivity : Activity() {
                 progress.progress = newProgress
             }
 
-            override fun onReceivedTitle(view: WebView, title: String?) {
-                val i = indexOfWebView(view)
-                if (i >= 0 && !title.isNullOrBlank()) tabs[i].titleView.text = title
-            }
-
             override fun onCreateWindow(
                 view: WebView,
                 isDialog: Boolean,
@@ -206,43 +214,64 @@ class MainActivity : Activity() {
         return wv
     }
 
-    // ── navigation ────────────────────────────────────────────────────────
+    // ── whitelist ─────────────────────────────────────────────────────────
 
-    private fun isAppUrl(uri: Uri): Boolean =
-        uri.scheme?.lowercase() == "https" && uri.host?.lowercase() == appHost
-
-    /** return true = navigation is handled here (external browser / blocked). */
-    private fun handleUrl(uri: Uri): Boolean {
-        if (isAppUrl(uri)) return false
-        if (uri.scheme?.lowercase() == "http" || uri.scheme?.lowercase() == "https") {
-            openExternal(uri)
-        }
-        return true
+    private fun loadWhitelist() {
+        val cached = getSharedPreferences("ekhub", MODE_PRIVATE).getString("whitelist", null)
+        setWhitelist(cached ?: defaultWhitelist)
+        refreshWhitelist()
     }
 
-    /** target=_blank / window.open: app pages open in a new tab, others go to the browser. */
+    private fun refreshWhitelist() {
+        Thread {
+            runCatching {
+                val conn = URL(whitelistUrl).openConnection() as HttpURLConnection
+                conn.connectTimeout = 10_000
+                conn.readTimeout = 10_000
+                val text = conn.inputStream.bufferedReader().readText()
+                conn.disconnect()
+                if (parseWhitelist(text).isNotEmpty()) {
+                    getSharedPreferences("ekhub", MODE_PRIVATE)
+                        .edit().putString("whitelist", text).apply()
+                    runOnUiThread { setWhitelist(text) }
+                }
+            }
+        }.start()
+    }
+
+    private fun setWhitelist(text: String) {
+        whitelist.clear()
+        whitelist.addAll(parseWhitelist(text))
+        whitelist.add(appHost)
+    }
+
+    private fun parseWhitelist(text: String): List<String> =
+        text.lines().map { it.trim().lowercase() }
+            .filter { it.isNotEmpty() && !it.startsWith("#") }
+
+    // ── navigation ────────────────────────────────────────────────────────
+
+    private fun isAllowed(uri: Uri): Boolean {
+        if (uri.scheme?.lowercase() != "http" && uri.scheme?.lowercase() != "https") return false
+        val host = uri.host?.lowercase() ?: return false
+        return whitelist.any { host.contains(it) }
+    }
+
+    /** target=_blank / window.open: whitelisted opens a new tab, else browser. */
     private fun handleNewWindow(resultMsg: Message): Boolean {
         val transport = resultMsg.obj as? WebView.WebViewTransport ?: return false
         val dummy = WebView(this)
         dummy.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val uri = request.url
-                if (isAppUrl(uri)) {
-                    addTab(uri.toString())
-                    return true
-                }
-                openExternal(uri)
+                if (isAllowed(uri)) addTab(uri.toString()) else openExternal(uri)
                 return true
             }
 
             @Deprecated("Deprecated in Java")
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
                 val uri = Uri.parse(url)
-                if (isAppUrl(uri)) {
-                    addTab(uri.toString())
-                    return true
-                }
-                openExternal(uri)
+                if (isAllowed(uri)) addTab(uri.toString()) else openExternal(uri)
                 return true
             }
         }

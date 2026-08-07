@@ -1,0 +1,24 @@
+# EkHub Android whitelist
+# Only hosts listed here load inside the app. Everything else opens in the
+# external browser.
+#
+# One rule per line. '#' starts a comment.
+# A rule matches:
+#   - the exact host, AND
+#   - any subdomain (new4.hdhub4u.cl matches "hdhub4u.cl"), AND
+#   - any host containing the rule (so "hubcloud" matches hubcloud.cx,
+#     "hdhub4u" matches hdhub4u.cl / hdhub4u.ec / new4.hdhub4u.cl, etc.)
+#
+# The app host (ekhub.vercel.app) is always allowed and cannot be removed.
+
+ekhub.vercel.app
+hdhub4u
+4khdhub
+hubcloud
+hubdrive
+gamerxyt
+hubstream.art
+greenmountmotors.com
+player.videasy.net
+player.autoembed.cc
+image.tmdb.org
