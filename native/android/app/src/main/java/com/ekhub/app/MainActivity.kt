@@ -2,7 +2,6 @@ package com.ekhub.app
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
@@ -27,7 +26,8 @@ import java.net.URL
  *   served from GitHub raw, cached locally, and falls back to a bundled copy.
  * - Links to whitelisted hosts open in a new tab (no tab UI: back / Home
  *   navigate; closing the top tab lands on the previous one).
- * - Everything not whitelisted goes to the external browser.
+ * - Everything not whitelisted is blocked — it never opens in the app and
+ *   never opens in the external browser.
  * - Home / Back / Forward toolbar controls the active tab.
  */
 class MainActivity : Activity() {
@@ -154,10 +154,7 @@ class MainActivity : Activity() {
         wv.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val uri = request.url
-                if (!isAllowed(uri)) {
-                    if (request.isForMainFrame) openExternal(uri)
-                    return true
-                }
+                if (!isAllowed(uri)) return true
                 if (!request.isForMainFrame) return false
                 val currentHost = view.url?.let { Uri.parse(it).host?.lowercase() }
                 if (currentHost != null && uri.host?.lowercase() != currentHost) {
@@ -170,10 +167,7 @@ class MainActivity : Activity() {
             @Deprecated("Deprecated in Java")
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
                 val uri = Uri.parse(url)
-                if (!isAllowed(uri)) {
-                    openExternal(uri)
-                    return true
-                }
+                if (!isAllowed(uri)) return true
                 val currentHost = view.url?.let { Uri.parse(it).host?.lowercase() }
                 if (currentHost != null && uri.host?.lowercase() != currentHost) {
                     addTab(uri.toString())
@@ -258,31 +252,27 @@ class MainActivity : Activity() {
         return whitelist.any { host.contains(it) }
     }
 
-    /** target=_blank / window.open: whitelisted opens a new tab, else browser. */
+    /** target=_blank / window.open: whitelisted opens a new tab, else blocked. */
     private fun handleNewWindow(resultMsg: Message): Boolean {
         val transport = resultMsg.obj as? WebView.WebViewTransport ?: return false
         val dummy = WebView(this)
         dummy.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val uri = request.url
-                if (isAllowed(uri)) addTab(uri.toString()) else openExternal(uri)
+                if (isAllowed(uri)) addTab(uri.toString())
                 return true
             }
 
             @Deprecated("Deprecated in Java")
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
                 val uri = Uri.parse(url)
-                if (isAllowed(uri)) addTab(uri.toString()) else openExternal(uri)
+                if (isAllowed(uri)) addTab(uri.toString())
                 return true
             }
         }
         transport.webView = dummy
         resultMsg.sendToTarget()
         return true
-    }
-
-    private fun openExternal(uri: Uri) {
-        runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
     }
 
     private fun updateToolbar() {

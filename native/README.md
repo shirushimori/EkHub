@@ -55,8 +55,10 @@ on a machine with the Android SDK + JDK 17 + Gradle 8.9 — outputs
 
 Zero AndroidX dependencies — plain framework WebView — so the APK stays tiny
 and runs fine on low-end devices. The app loads `ekhub.vercel.app/app` in a
-minimal WebView; links that leave the app host open in the external browser,
-and the back button navigates back within the app.
+minimal WebView; hosts on the whitelist (`whitelist.txt` in the repo root,
+`githubusercontent.com`) load in-app and open new tabs, while everything else
+is blocked — never the external browser, and the back button navigates back
+within the app.
 
 **Signing:** the release build signs with the debug keystore by default so
 every build is installable. For a real release key, create
