@@ -167,13 +167,14 @@ export function SearchModal({ open, onClose }: SearchModalProps) {
                     </p>
                   )}
 
-                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                  <div className="grid grid-cols-3 gap-x-3 gap-y-4 sm:grid-cols-4">
                     {results.map((item) => (
                       <PosterCard
                         key={item.id}
                         item={item}
                         size="sm"
                         onClick={() => handleCardClick(item)}
+                        className="w-full min-w-0 md:w-full md:min-w-0"
                       />
                     ))}
                   </div>

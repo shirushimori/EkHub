@@ -64,13 +64,14 @@ export default function DiscoverPage() {
           title="All Content"
           subtitle={`${unique.length} titles loaded`}
         />
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+        <div className="grid grid-cols-3 gap-x-3 gap-y-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
           {unique.length > 0
             ? unique.map((item) => (
                 <PosterCard
                   key={item.id}
                   item={item}
                   size="sm"
+                  className="w-full min-w-0 md:w-full md:min-w-0"
                 />
               ))
             : Array.from({ length: 18 }).map((_, i) => (

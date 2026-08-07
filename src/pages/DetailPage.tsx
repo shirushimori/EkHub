@@ -5,7 +5,7 @@ import { useContentStore } from "@/stores/contentStore";
 import { posterUrl, typeLabel, type MovieDetail } from "@/types/content";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { getMovieWatchProviders } from "@/providers/tmdb";
-import type { DownloadPack, EpisodeDownload } from "@/types/scraper";
+import type { DownloadLink, DownloadPack, EpisodeDownload } from "@/types/scraper";
 import type { ScraperSource } from "@/types/scraper";
 import type { TmdbWatchRegion } from "@/types/movie";
 import { BookmarkButton } from "@/components/ui/BookmarkButton";
@@ -122,6 +122,7 @@ export default function DetailPage() {
   const downloads = d.downloads;
   const episodeDownloads = d.episodeDownloads;
   const hasDownloads = (downloads && downloads.length > 0) || (episodeDownloads && episodeDownloads.length > 0);
+  const episodeWatchEpisodes = (episodeDownloads || []).filter((ep) => ep.watchLinks && ep.watchLinks.length > 0);
   const uniqueGenres = Array.from(new Set(d.genres));
   const screenshots = d.screenshots || [];
   const watchLinks = d.watchLinks || [];
@@ -392,44 +393,20 @@ export default function DetailPage() {
             </div>
           )}
 
-          {/* Watch Now Buttons */}
-          {(embeddedPlayerUrl || watchLinks.length > 0 || isAnimeSource(d)) && (
-            <div className="mb-6 flex flex-wrap gap-3">
-              {embeddedPlayerUrl && (
-                <button
-                  onClick={() => setShowPlayer(true)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
-                >
-                  <Play className="h-4 w-4 fill-white" />
-                  Watch Now
-                </button>
-              )}
-              {watchLinks.map((link, i) => (
-                <button
-                  key={i}
-                  onClick={() => {
-                    setActiveWatchLink(link);
-                    setShowWatchLinkPlayer(true);
-                  }}
-                  className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-6 py-3 text-sm font-medium text-primary backdrop-blur-sm transition-colors hover:bg-white/20"
-                >
-                  <Play className="h-4 w-4" />
-                  {link.label}
-                </button>
-              ))}
-              {isAnimeSource(d) && (
-                <a
-                  href={`${HIANIME_BASE}/search?keyword=${encodeURIComponent(d.title)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:from-purple-700 hover:to-pink-700"
-                >
-                  <Play className="h-4 w-4 fill-white" />
-                  Watch on HiAnime
-                </a>
-              )}
-            </div>
-          )}
+          {/* Watch Online */}
+          <WatchSection
+            embeddedPlayerUrl={embeddedPlayerUrl}
+            watchLinks={watchLinks}
+            episodeWatchEpisodes={episodeWatchEpisodes}
+            animeSearchUrl={
+              isAnimeSource(d) ? `${HIANIME_BASE}/search?keyword=${encodeURIComponent(d.title)}` : ""
+            }
+            onPlayEmbedded={() => setShowPlayer(true)}
+            onPlayWatchLink={(link) => {
+              setActiveWatchLink(link);
+              setShowWatchLinkPlayer(true);
+            }}
+          />
 
           {/* Watch Link Player Overlay */}
           {showWatchLinkPlayer && activeWatchLink && (
@@ -637,6 +614,119 @@ export default function DetailPage() {
   );
 }
 
+// ── Watch Section ────────────────────────────────────────
+
+function WatchSection({
+  embeddedPlayerUrl,
+  watchLinks,
+  episodeWatchEpisodes,
+  animeSearchUrl,
+  onPlayEmbedded,
+  onPlayWatchLink,
+}: {
+  embeddedPlayerUrl: string;
+  watchLinks: DownloadLink[];
+  episodeWatchEpisodes: EpisodeDownload[];
+  animeSearchUrl: string;
+  onPlayEmbedded: () => void;
+  onPlayWatchLink: (link: DownloadLink) => void;
+}) {
+  const hasEmbedded = Boolean(embeddedPlayerUrl);
+  const hasSources = watchLinks.length > 0;
+  const hasEpisodes = episodeWatchEpisodes.length > 0;
+  const hasAnime = Boolean(animeSearchUrl);
+
+  if (!hasEmbedded && !hasSources && !hasEpisodes && !hasAnime) return null;
+
+  return (
+    <div className="mb-6">
+      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-secondary">
+        <Play className="h-4 w-4 text-accent" />
+        Watch Online
+      </h3>
+
+      {(hasEmbedded || hasSources || hasAnime) && (
+        <div className="mb-4 flex flex-wrap gap-3">
+          {hasEmbedded && (
+            <button
+              onClick={onPlayEmbedded}
+              className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+            >
+              <Play className="h-4 w-4 fill-white" />
+              Watch Now
+            </button>
+          )}
+          {watchLinks.map((link, i) => (
+            <button
+              key={i}
+              onClick={() => onPlayWatchLink(link)}
+              className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-6 py-3 text-sm font-medium text-primary backdrop-blur-sm transition-colors hover:bg-white/20"
+            >
+              <Play className="h-4 w-4" />
+              {link.label}
+            </button>
+          ))}
+          {hasAnime && (
+            <a
+              href={animeSearchUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:from-purple-700 hover:to-pink-700"
+            >
+              <Play className="h-4 w-4 fill-white" />
+              Watch on HiAnime
+            </a>
+          )}
+        </div>
+      )}
+
+      {hasEpisodes && (
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="flex items-center gap-2 border-b border-border bg-surface/50 px-4 py-3">
+            <MonitorSmartphone className="h-4 w-4 text-accent" />
+            <span className="text-sm font-semibold uppercase tracking-wider text-primary">
+              Episodes
+            </span>
+            <span className="ml-auto rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent">
+              {episodeWatchEpisodes.length}
+            </span>
+          </div>
+          <div className="max-h-[calc(100dvh-6rem)] overflow-y-auto">
+            {episodeWatchEpisodes.map((ep) => (
+              <div key={`${ep.season}-${ep.episode}-${ep.title}`} className="border-b border-border px-4 py-3">
+                <div className="mb-2 flex items-center gap-2">
+                  {ep.episode && (
+                    <span className="shrink-0 rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent">
+                      {ep.episode}
+                    </span>
+                  )}
+                  <span className="flex-1 truncate text-xs font-medium leading-snug text-primary">
+                    {ep.title}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {ep.watchLinks!.map((link, k) => (
+                    <a
+                      key={k}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-accent-hover"
+                    >
+                      <Play className="h-3.5 w-3.5 fill-white" />
+                      Watch {link.label && link.label !== "WATCH" ? link.label : "Now"}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Download Section ──────────────────────────────────────
 
 function DownloadSection({
@@ -823,23 +913,6 @@ function EpisodeItem({ item, ep }: { item: MovieDetail | import("@/types/content
       </summary>
 
       <div className="border-t border-border/50 bg-surface/30 px-4 pb-3 pt-2">
-        {ep.watchLinks && ep.watchLinks.length > 0 && (
-          <div className="mb-3 flex flex-wrap gap-2">
-            {ep.watchLinks.map((link, k) => (
-              <a
-                key={k}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-accent-hover"
-              >
-                <Play className="h-3.5 w-3.5 fill-white" />
-                Watch {link.label && link.label !== "WATCH" ? link.label : "Now"}
-              </a>
-            ))}
-          </div>
-        )}
-
         <div className="flex flex-col gap-2">
           {ep.downloads.map((file, j) => (
             <details key={j} className="group/file">
