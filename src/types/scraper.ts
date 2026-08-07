@@ -68,6 +68,7 @@ export interface EpisodeDownload {
   episode: string;
   title: string;
   downloads: DownloadFile[];
+  watchLinks?: DownloadLink[];
 }
 
 export interface DownloadFile {

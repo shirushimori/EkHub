@@ -163,19 +163,44 @@ export function parseDetailPage(html: string, slug: string): ScrapedDetail {
   // Parse year and season from title or text content near title
   const titleText = title;
 
-  // Extract embedded player (youtube/dailymotion trailers)
+  // Extract embedded player (youtube/dailymotion/4khdhub in-page player)
   const embeddedPlayerUrl = (() => {
-    const iframe = doc.querySelector("iframe[src*='youtube'], iframe[src*='dailymotion'], iframe[src*='embed']");
+    const iframe = doc.querySelector(
+      "iframe#videoPlayer, iframe.video-player, iframe[src*='youtube'], iframe[src*='dailymotion'], iframe[src*='embed'], iframe[src*='videasy'], iframe[src*='autoembed']"
+    );
     return iframe?.getAttribute("src") || "";
   })();
 
+  // Parse the videoSources JS object (e.g. { '4K': '...videasy.net/movie/', 'Autoembed': '...autoembed.cc/embed/movie/' })
+  // combined with defaultVideoId into alternate watch-player links.
+  const videoSourceLinks: { label: string; url: string }[] = (() => {
+    const scriptText = Array.from(doc.querySelectorAll("script"))
+      .map((s) => s.textContent || "")
+      .join("\n");
+    const sourcesMatch = scriptText.match(/videoSources\s*=\s*(\{[^}]+\})/);
+    const idMatch = scriptText.match(/defaultVideoId\s*=\s*['"]([^'"]+)['"]/);
+    if (!sourcesMatch) return [];
+    const id = idMatch ? idMatch[1] : "";
+    const links: { label: string; url: string }[] = [];
+    for (const entry of sourcesMatch[1].matchAll(/['"]([^'"]+)['"]\s*:\s*['"]([^'"]+)['"]/g)) {
+      const label = entry[1];
+      const base = entry[2];
+      if (!/^https?:\/\//i.test(base)) continue;
+      links.push({ label, url: id ? `${base.replace(/\/+$/, "")}/${id}` : base });
+    }
+    return links;
+  })();
+
   // Extract watch links from the page
-  const watchLinks: { label: string; url: string }[] = [];
+  const watchLinks: { label: string; url: string }[] = [...videoSourceLinks];
   for (const el of Array.from(doc.querySelectorAll("a[href*='watch'], a[href*='player'], a[href*='stream']"))) {
     const href = el.getAttribute("href") || "";
     const label = el.textContent?.trim() || "";
     if (href && label) {
-      watchLinks.push({ label, url: href });
+      const base = href.split("?")[0].split("#")[0];
+      if (!watchLinks.some((l) => l.url.split("?")[0].split("#")[0] === base)) {
+        watchLinks.push({ label, url: href });
+      }
     }
   }
   const yearMatch = titleText.match(/\((\d{4})\)/);

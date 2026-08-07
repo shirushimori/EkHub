@@ -75,7 +75,7 @@ export default function DetailPage() {
 
   useEffect(() => {
     if (lightboxIndex === null || !detail) return;
-    const ss = isMovieDetail(detail) ? (detail as MovieDetail).screenshots || [] : [];
+    const ss = detail.screenshots || [];
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setLightboxIndex(null);
       if (e.key === "ArrowLeft" && lightboxIndex > 0) setLightboxIndex(lightboxIndex - 1);
@@ -119,18 +119,18 @@ export default function DetailPage() {
 
   const d = detail;
   const movieDetail = isMovieDetail(d) ? d as MovieDetail : null;
-  const downloads = movieDetail?.downloads;
+  const downloads = d.downloads;
   const episodeDownloads = d.episodeDownloads;
   const hasDownloads = (downloads && downloads.length > 0) || (episodeDownloads && episodeDownloads.length > 0);
   const uniqueGenres = Array.from(new Set(d.genres));
-  const screenshots = movieDetail?.screenshots || [];
-  const watchLinks = movieDetail?.watchLinks || [];
-  const embeddedPlayerUrl = movieDetail?.embeddedPlayerUrl || "";
-  const director = movieDetail?.director || "";
-  const storyline = movieDetail?.storyline || "";
-  const review = movieDetail?.review || "";
-  const audioLanguages = movieDetail?.audioLanguages || "";
-  const printQuality = movieDetail?.printQuality || "";
+  const screenshots = d.screenshots || [];
+  const watchLinks = d.watchLinks || [];
+  const embeddedPlayerUrl = d.embeddedPlayerUrl || "";
+  const director = d.director || "";
+  const storyline = d.storyline || "";
+  const review = d.review || "";
+  const audioLanguages = d.audioLanguages || "";
+  const printQuality = d.printQuality || "";
 
   return (
     <div className="select-none mx-auto max-w-7xl px-4 py-6 md:px-8">
@@ -823,6 +823,23 @@ function EpisodeItem({ item, ep }: { item: MovieDetail | import("@/types/content
       </summary>
 
       <div className="border-t border-border/50 bg-surface/30 px-4 pb-3 pt-2">
+        {ep.watchLinks && ep.watchLinks.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {ep.watchLinks.map((link, k) => (
+              <a
+                key={k}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-accent-hover"
+              >
+                <Play className="h-3.5 w-3.5 fill-white" />
+                Watch {link.label && link.label !== "WATCH" ? link.label : "Now"}
+              </a>
+            ))}
+          </div>
+        )}
+
         <div className="flex flex-col gap-2">
           {ep.downloads.map((file, j) => (
             <details key={j} className="group/file">

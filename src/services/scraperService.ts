@@ -133,6 +133,15 @@ export function scrapedToTvDetail(d: ScrapedDetail, source: ScraperSource = "4kh
       : [],
     episodes: [],
     episodeDownloads: d.episodes,
+    downloads: d.downloads,
+    screenshots: d.screenshots,
+    watchLinks: d.watchLinks,
+    embeddedPlayerUrl: d.embeddedPlayerUrl,
+    director: d.director,
+    storyline: d.storyline,
+    review: d.review,
+    audioLanguages: d.audioLanguages,
+    printQuality: d.printQuality,
   };
 }
 

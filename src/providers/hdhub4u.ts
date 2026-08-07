@@ -66,7 +66,7 @@ function extractSlug(href: string): string {
 
 // ── Download Parser (flat packs + episode structure) ─────
 
-const DOWNLOAD_HOST_RE = /hubdrive\.|hubcdn\.|hubstream\.|gadgetsweb\.|driveleech|pixeldrain|mega\.nz|mediafire|gofile/i;
+const DOWNLOAD_HOST_RE = /hubdrive\.|hubcdn\.|hubstream\.|hubcloud\.|gadgetsweb\.|driveleech|pixeldrain|mega\.nz|mediafire|gofile|greenmountmotors\.|hdstream4u\./i;
 const EPISODE_RE = /EPiSODE\s+(\d+)/i;
 
 interface ParseResult {
@@ -77,7 +77,10 @@ interface ParseResult {
 function parseDownloads(body: Element): ParseResult {
   const episodeContainer = body.querySelector(".Z1hOCe");
   const downloads = parseFlatDownloads(body, episodeContainer);
-  const episodes = episodeContainer ? parseEpisodes(episodeContainer) : [];
+  let episodes = episodeContainer ? parseEpisodes(episodeContainer) : [];
+  if (episodes.length === 0) {
+    episodes = parseFlatEpisodeHeadings(episodeContainer ?? body);
+  }
   return { downloads, episodes };
 }
 
@@ -92,6 +95,10 @@ function parseFlatDownloads(body: Element, excludeContainer: Element | null): Do
     const text = a.textContent?.trim()?.replace(/\s+/g, " ") || "";
     if (!href || !text || !/http/i.test(href)) continue;
     if (/4khdhub\.one/i.test(href)) continue;
+
+    // Skip anchors that are part of an episode row (flat EPiSODE | WATCH lists)
+    const heading = a.closest("h1,h2,h3,h4,h5,h6,p");
+    if (heading && EPISODE_RE.test(heading.textContent || "")) continue;
 
     const qualityMatch = text.match(/(4K|2160p|1080p|720p|480p)/i);
     const sizeMatch = text.match(/\[([^\]]+)]/);
@@ -132,12 +139,14 @@ function parseEpisodes(container: Element): EpisodeDownload[] {
         episode: `EPISODE ${epMatch[1]}`,
         title: `Episode ${epMatch[1]}`,
         downloads: [],
+        watchLinks: [],
       };
       episodes.push(currentEp);
       continue;
     }
 
     if (!currentEp) continue;
+    const episodeWatchLinks = currentEp.watchLinks ?? (currentEp.watchLinks = []);
 
     const links = Array.from(h4.querySelectorAll("a"));
     if (links.length === 0) continue;
@@ -154,7 +163,11 @@ function parseEpisodes(container: Element): EpisodeDownload[] {
         const href = a.getAttribute("href") || "";
         const label = a.textContent?.trim()?.replace(/\s+/g, " ") || "";
         if (!href || !label || !/http/i.test(href)) return null;
-        if (!DOWNLOAD_HOST_RE.test(href) && !/drive|instant|watch/i.test(label)) return null;
+        if (/watch/i.test(label) || /hdstream4u|hubstream|player\.|videasy|autoembed/i.test(href)) {
+          episodeWatchLinks.push({ label: label === "WATCH" ? "WATCH" : label, url: href });
+          return null;
+        }
+        if (!DOWNLOAD_HOST_RE.test(href) && !/drive|instant/i.test(label)) return null;
         return { label, url: href };
       })
       .filter((l): l is DownloadLink => l !== null);
@@ -169,6 +182,59 @@ function parseEpisodes(container: Element): EpisodeDownload[] {
         fileSize: "",
         links: downloadLinks,
       } satisfies DownloadFile);
+    }
+  }
+
+  return episodes;
+}
+
+/**
+ * Parses flat episode rows like:
+ *   <h3> <a href="https://greenmountmotors.com/?id=...">EPiSODE 1</a> |
+ *        <a href="https://hdstream4u.com/file/...">WATCH</a> </h3>
+ * Each row becomes an episode with the download link(s) + WATCH links.
+ */
+function parseFlatEpisodeHeadings(container: Element): EpisodeDownload[] {
+  const episodes: EpisodeDownload[] = [];
+  const headings = Array.from(container.querySelectorAll("h1, h2, h3, h4, h5, h6, p"));
+
+  for (const el of headings) {
+    const anchors = Array.from(el.querySelectorAll("a")).filter((a) =>
+      /^https?:/i.test(a.getAttribute("href") || "")
+    );
+    if (anchors.length === 0) continue;
+
+    const epMatch = (el.textContent || "").match(EPISODE_RE);
+    const hasEpLabel = anchors.some((a) => EPISODE_RE.test(a.textContent || ""));
+    if (!epMatch && !hasEpLabel) continue;
+
+    const episodeNum = epMatch ? epMatch[1] : (hasEpLabel ? EPISODE_RE.exec(anchors[0].textContent || "")?.[1] : "");
+    const current: EpisodeDownload = {
+      season: "",
+      format: "",
+      episode: episodeNum ? `EPISODE ${episodeNum}` : "",
+      title: episodeNum ? `Episode ${episodeNum}` : "",
+      downloads: [],
+      watchLinks: [],
+    };
+    episodes.push(current);
+
+    for (const a of anchors) {
+      const href = a.getAttribute("href") || "";
+      const label = a.textContent?.trim()?.replace(/\s+/g, " ") || "";
+      if (/watch/i.test(label) || /hdstream4u|hubstream|player\.|videasy|autoembed/i.test(href)) {
+        current.watchLinks!.push({ label: label || "Watch", url: href });
+      } else {
+        current.downloads.push({
+          title: label || href,
+          format: "",
+          quality: "",
+          language: "",
+          codec: "",
+          fileSize: "",
+          links: [{ label: label || "Download", url: href }],
+        });
+      }
     }
   }
 

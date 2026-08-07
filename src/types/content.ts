@@ -26,6 +26,15 @@ export interface ContentItem {
   formats?: string[];
   tagline?: string;
   episodeDownloads?: EpisodeDownload[];
+  downloads?: DownloadPack[];
+  screenshots?: string[];
+  watchLinks?: Array<{ label: string; url: string }>;
+  embeddedPlayerUrl?: string;
+  director?: string;
+  storyline?: string;
+  review?: string;
+  audioLanguages?: string;
+  printQuality?: string;
 }
 
 export interface MovieDetail extends ContentItem {
@@ -40,15 +49,6 @@ export interface MovieDetail extends ContentItem {
   images: { backdrops: string[]; posters: string[]; logos: string[] };
   recommendations: ContentItem[];
   similar: ContentItem[];
-  downloads?: DownloadPack[];
-  screenshots?: string[];
-  watchLinks?: Array<{ label: string; url: string }>;
-  embeddedPlayerUrl?: string;
-  director?: string;
-  storyline?: string;
-  review?: string;
-  audioLanguages?: string;
-  printQuality?: string;
 }
 
 export interface TvDetail extends ContentItem {

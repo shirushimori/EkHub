@@ -45,6 +45,7 @@ class MainActivity : Activity() {
         gamerxyt
         hubstream.art
         greenmountmotors.com
+        hdstream4u
         player.videasy.net
         player.autoembed.cc
         image.tmdb.org

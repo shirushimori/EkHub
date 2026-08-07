@@ -314,10 +314,16 @@ describe("hdhub4u series detail parser", () => {
   it("parses multiple mirror links per quality", () => {
     const detail = parseDetailPage(SERIES_DETAIL_HTML, "the-east-palace-season-1");
     const ep1_720p = detail.episodes[0].downloads[0];
-    expect(ep1_720p.links).toHaveLength(3);
+    expect(ep1_720p.links).toHaveLength(2);
     expect(ep1_720p.links[0].label).toBe("Drive");
     expect(ep1_720p.links[1].label).toBe("Instant");
-    expect(ep1_720p.links[2].label).toBe("WATCH");
+  });
+
+  it("extracts WATCH links per episode", () => {
+    const detail = parseDetailPage(SERIES_DETAIL_HTML, "the-east-palace-season-1");
+    expect(detail.episodes[0].watchLinks).toHaveLength(1);
+    expect(detail.episodes[0].watchLinks?.[0].label).toBe("WATCH");
+    expect(detail.episodes[0].watchLinks?.[0].url).toContain("hubstream.art");
   });
 
   it("parses episode download URLs", () => {
@@ -332,5 +338,52 @@ describe("hdhub4u series detail parser", () => {
       d.links.some((l) => l.url.includes("4khdhub.one"))
     );
     expect(has4khdhub).toBe(false);
+  });
+});
+
+const FLAT_SERIES_HTML = `
+<html><head>
+  <meta property="og:image" content="https://image.tmdb.org/t/p/w500/hotd-s03.jpg" />
+</head><body>
+<h1 class="page-title"><i class="material-icons">&#xE02C;</i><span class="material-text">House of the Dragon (Season 3) WEB-DL [Hindi Dubbed] 4K 1080p 720p &amp; 480p | Full Series</span></h1>
+<main class="page-body">
+  <div class="kno-rdesc"><span>A prequel chronicling the civil war of House Targaryen.</span></div>
+  <div><span><strong>iMDB Rating: </strong>8.5/10</span></div>
+  <div><span><strong>Genre:</strong> Drama | Fantasy</span></div>
+  <div><span><strong>Language:</strong> Hindi Dubbed + English</span></div>
+  <div><span><strong>Quality: </strong>WEB-DL 4K | 1080p | 720p | 480p</span></div>
+  <h2><span>: DOWNLOAD LINKS :</span></h2>
+  <div class="Z1hOCe">
+    <h3 style="text-align: center;"><a href="https://greenmountmotors.com/?id=ep1" target="_blank" rel="noreferrer noopener nofollow external">EPiSODE 1</a> | <a href="https://hdstream4u.com/file/abc1" target="_blank" rel="nofollow external noopener noreferrer"><span>WATCH</span></a></h3>
+    <h3 style="text-align: center;"><a href="https://greenmountmotors.com/?id=ep2" target="_blank" rel="noreferrer noopener nofollow external">EPiSODE 2</a> | <a href="https://hdstream4u.com/file/abc2" target="_blank" rel="nofollow external noopener noreferrer"><span>WATCH</span></a></h3>
+    <h3 style="text-align: center;"><a href="https://greenmountmotors.com/?id=ep3" target="_blank" rel="noreferrer noopener nofollow external">EPiSODE 3</a> | <a href="https://hdstream4u.com/file/abc3" target="_blank" rel="nofollow external noopener noreferrer"><span>WATCH</span></a></h3>
+  </div>
+</main>
+</body></html>
+`;
+
+describe("hdhub4u flat episode series parser", () => {
+  it("parses episodes from h3 EPiSODE | WATCH rows", () => {
+    const detail = parseDetailPage(FLAT_SERIES_HTML, "house-of-the-dragon-season-3");
+    expect(detail.type).toBe("series");
+    expect(detail.episodes).toHaveLength(3);
+    expect(detail.episodes[0].episode).toBe("EPISODE 1");
+    expect(detail.episodes[2].episode).toBe("EPISODE 3");
+  });
+
+  it("captures download + WATCH links per episode", () => {
+    const detail = parseDetailPage(FLAT_SERIES_HTML, "house-of-the-dragon-season-3");
+    const ep1 = detail.episodes[0];
+    expect(ep1.downloads[0].links[0].url).toContain("greenmountmotors.com");
+    expect(ep1.watchLinks?.[0].url).toContain("hdstream4u.com");
+    expect(ep1.watchLinks?.[0].label).toBe("WATCH");
+  });
+
+  it("does not duplicate episode rows into flat downloads", () => {
+    const detail = parseDetailPage(FLAT_SERIES_HTML, "house-of-the-dragon-season-3");
+    const inDownloads = detail.downloads.some((dl) =>
+      dl.links.some((l) => /greenmountmotors|hdstream4u/.test(l.url))
+    );
+    expect(inDownloads).toBe(false);
   });
 });
