@@ -2,42 +2,23 @@ package com.ekhub.app
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.app.DownloadManager
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
-import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.os.Message
 import android.view.View
-import android.webkit.DownloadListener
-import android.webkit.JavascriptInterface
-import android.webkit.WebChromeClient
-import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ProgressBar
-import android.widget.TextView
-import org.json.JSONObject
 
 /**
- * Thin WebView shell around the EkHub web app.
+ * Minimal WebView shell around the EkHub web app.
  *
- * - Stays on ekhub.vercel.app.
- * - Watch players and download mirrors load in-app so the whole flow works
- *   without leaving the app; ad/tracker popups and new-tab ad windows are
- *   blocked (native + injected JS).
- * - Downloads are intercepted and saved into an organized, app-private folder
- *   tree (Movies/<Title>/, Series/<Title>/Season <n>/), driven by metadata the
- *   web app sends over the EkHubNative JS bridge.
- * - A Crunchyroll-style "Download complete" banner slides up when a download
- *   finishes, with a button that opens the built-in video player.
+ * - Loads the hosted app at [homeUrl].
+ * - Links that leave the app host open in the external browser.
+ * - The system back button navigates back within the WebView.
  */
 class MainActivity : Activity() {
 
@@ -45,15 +26,6 @@ class MainActivity : Activity() {
     private val appHost = "ekhub.vercel.app"
 
     private lateinit var webView: WebView
-    private lateinit var repo: DownloadRepository
-
-    private var pendingContext: DownloadContext? = null
-    private var downloadReceiver: BroadcastReceiver? = null
-
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private val hideBanner = Runnable { setBannerVisible(false) }
-    private var lastDownloadPath: String? = null
-    private var lastDownloadTitle: String = ""
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,19 +33,6 @@ class MainActivity : Activity() {
         setContentView(R.layout.activity_main)
 
         webView = findViewById(R.id.webview)
-        repo = DownloadRepository(this)
-        repo.listener = { info -> mainHandler.post { showDownloadBanner(info) } }
-
-        downloadReceiver = object : BroadcastReceiver() {
-            override fun onReceive(c: Context?, intent: Intent?) {
-                if (intent?.action == DownloadManager.ACTION_DOWNLOAD_COMPLETE) {
-                    repo.onDownloadComplete(intent)
-                }
-            }
-        }
-        registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
-
-        webView.addJavascriptInterface(Bridge(), "EkHubNative")
 
         val settings = webView.settings
         settings.javaScriptEnabled = true
@@ -84,145 +43,86 @@ class MainActivity : Activity() {
         settings.setSupportZoom(false)
         settings.loadWithOverviewMode = true
         settings.useWideViewPort = true
-        settings.cacheMode = WebSettings.LOAD_DEFAULT
         settings.userAgentString = settings.userAgentString.replace("; wv", "")
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                return shouldIntercept(request.url.toString())
+                return handleUrl(request.url)
             }
 
             @Deprecated("Deprecated in Java")
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-                return shouldIntercept(url)
+                return handleUrl(Uri.parse(url))
             }
 
-            override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+            override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 findViewById<ProgressBar>(R.id.progress).visibility = View.VISIBLE
-                injectAdBlock()
             }
 
             override fun onPageFinished(view: WebView, url: String?) {
                 findViewById<ProgressBar>(R.id.progress).visibility = View.GONE
-                injectAdBlock()
             }
 
-            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+            override fun onReceivedError(
+                view: WebView,
+                request: WebResourceRequest,
+                error: android.webkit.WebResourceError
+            ) {
                 if (request.isForMainFrame) {
                     findViewById<ProgressBar>(R.id.progress).visibility = View.GONE
                 }
             }
         }
 
-        webView.webChromeClient = object : WebChromeClient() {
+        webView.webChromeClient = object : android.webkit.WebChromeClient() {
             override fun onProgressChanged(view: WebView, newProgress: Int) {
                 findViewById<ProgressBar>(R.id.progress).progress = newProgress
             }
 
-            override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
+            override fun onCreateWindow(
+                view: WebView,
+                isDialog: Boolean,
+                isUserGesture: Boolean,
+                resultMsg: Message
+            ): Boolean {
                 return handleNewWindow(resultMsg)
             }
-        }
-
-        webView.setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
-            val ctx = pendingContext
-            pendingContext = null
-            repo.enqueue(url, userAgent, mimeType, contentDisposition, ctx)
-        })
-
-        findViewById<View>(R.id.banner_close).setOnClickListener { setBannerVisible(false) }
-        findViewById<View>(R.id.banner_play).setOnClickListener {
-            val path = lastDownloadPath ?: return@setOnClickListener
-            startActivity(
-                Intent(this, PlayerActivity::class.java)
-                    .putExtra("path", path)
-                    .putExtra("title", lastDownloadTitle)
-            )
         }
 
         webView.loadUrl(homeUrl)
     }
 
-    override fun onDestroy() {
-        downloadReceiver?.let { runCatching { unregisterReceiver(it) } }
-        super.onDestroy()
-    }
+    private fun isAppUrl(uri: Uri): Boolean =
+        uri.scheme?.lowercase() == "https" && uri.host?.lowercase() == appHost
 
-    // ── navigation / popup filtering ─────────────────────────────────────
-
-    /** return true = swallow the navigation. */
-    private fun shouldIntercept(url: String): Boolean {
-        if (AdBlocker.isAd(url)) return true
-        return handleNavigation(url)
-    }
-
-    /** Domains allowed to load inside the app's WebView. Everything else opens externally. */
-    private val whitelistHosts = setOf(
-        "4khdhub.one",
-        "new3.hdhub4u.cl",
-        "hdhub4u.cl",
-        "hdhub4u.mov",
-        "hdhub4u.ws",
-        "hdhub4u.pics",
-        "hdhub4u.mx",
-        "hianime.lol",
-        "youtube.com",
-        "www.youtube.com",
-        "m.youtube.com",
-        "youtu.be",
-        "youtube-nocookie.com",
-        "image.tmdb.org",
-    )
-
-    private fun isWhitelisted(host: String): Boolean {
-        if (host == appHost || host.endsWith(".vercel.app")) return true
-        if (host in whitelistHosts) return true
-        if (host.endsWith(".4khdhub.one") || host.endsWith(".hdhub4u.cl")) return true
-        return false
-    }
-
-    private fun openExternal(uri: Uri) {
-        runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
-    }
-
-    private fun handleNavigation(url: String): Boolean {
-        val uri = Uri.parse(url)
-        val host = uri.host?.lowercase() ?: return false
-        val scheme = uri.scheme?.lowercase()
-        if (scheme != "http" && scheme != "https") {
+    /** return true = navigation is handled here (external browser / blocked). */
+    private fun handleUrl(uri: Uri): Boolean {
+        if (isAppUrl(uri)) return false
+        if (uri.scheme?.lowercase() == "http" || uri.scheme?.lowercase() == "https") {
             openExternal(uri)
-            return true
         }
-        // Whitelisted tabs (watch players, download mirrors, media sites)
-        // load in our WebView; everything else goes to the external browser.
-        if (isWhitelisted(host)) return false
-        openExternal(uri)
         return true
     }
 
-    /** target=_blank / window.open: block ad popups, route whitelisted tabs into the main WebView. */
+    /** target=_blank / window.open: route app pages into the main WebView, others to the browser. */
     private fun handleNewWindow(resultMsg: Message): Boolean {
         val transport = resultMsg.obj as? WebView.WebViewTransport ?: return false
         val dummy = WebView(this)
         dummy.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                val url = request.url.toString()
-                if (AdBlocker.isAd(url)) return true
-                val host = request.url.host?.lowercase()
-                if (host != null && isWhitelisted(host)) {
-                    webView.loadUrl(url)
+                val uri = request.url
+                if (isAppUrl(uri)) {
+                    webView.loadUrl(uri.toString())
                     return true
                 }
-                openExternal(request.url)
+                openExternal(uri)
                 return true
             }
 
             @Deprecated("Deprecated in Java")
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-                if (AdBlocker.isAd(url)) return true
                 val uri = Uri.parse(url)
-                val host = uri.host?.lowercase()
-                if (host != null && isWhitelisted(host)) {
+                if (isAppUrl(uri)) {
                     webView.loadUrl(url)
                     return true
                 }
@@ -235,54 +135,8 @@ class MainActivity : Activity() {
         return true
     }
 
-    private fun injectAdBlock() {
-        webView.evaluateJavascript(AdBlocker.AD_BLOCK_JS, null)
-    }
-
-    // ── download banner ──────────────────────────────────────────────────
-
-    private fun showDownloadBanner(info: CompletedDownload) {
-        lastDownloadTitle = info.title
-        lastDownloadPath = info.absolutePath(this)
-        findViewById<TextView>(R.id.banner_text).text = info.title
-        findViewById<View>(R.id.banner_play).visibility = if (info.isVideo) View.VISIBLE else View.GONE
-        setBannerVisible(true)
-    }
-
-    private fun setBannerVisible(visible: Boolean) {
-        val banner = findViewById<View>(R.id.banner_download)
-        mainHandler.removeCallbacks(hideBanner)
-        if (visible) {
-            banner.alpha = 0f
-            banner.visibility = View.VISIBLE
-            banner.animate().alpha(1f).setDuration(220).start()
-            mainHandler.postDelayed(hideBanner, 6000)
-        } else {
-            banner.animate()
-                .alpha(0f)
-                .setDuration(180)
-                .withEndAction { banner.visibility = View.GONE }
-                .start()
-        }
-    }
-
-    // ── JS bridge from the web app ───────────────────────────────────────
-
-    private inner class Bridge {
-        @JavascriptInterface
-        fun setDownloadContext(json: String) {
-            val ctx = runCatching {
-                val o = JSONObject(json)
-                DownloadContext(
-                    title = o.optString("title"),
-                    type = o.optString("type", "movie"),
-                    season = o.optString("season").ifEmpty { null },
-                    episode = o.optString("episode").ifEmpty { null },
-                    fileName = o.optString("fileName").ifEmpty { null },
-                )
-            }.getOrNull()
-            mainHandler.post { pendingContext = ctx }
-        }
+    private fun openExternal(uri: Uri) {
+        runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
     }
 
     @Deprecated("Deprecated in Java")
