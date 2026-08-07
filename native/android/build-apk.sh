@@ -35,8 +35,8 @@ if [ ! -f "$KEYSTORE" ] && [ ! -f "$HERE/keystore.properties" ]; then
     -dname "CN=Android Debug,O=Android,C=US" >/dev/null 2>&1
 fi
 
-VERSION_NAME="${VERSION_NAME:-1.0.0}"
-VERSION_CODE="${VERSION_CODE:-100}"
+VERSION_NAME="${VERSION_NAME:-1.0.1}"
+VERSION_CODE="${VERSION_CODE:-101}"
 
 (cd "$HERE" && "$GRADLE" assembleRelease \
   -PversionName="$VERSION_NAME" -PversionCode="$VERSION_CODE" --no-daemon)

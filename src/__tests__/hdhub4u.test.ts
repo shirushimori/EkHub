@@ -375,6 +375,7 @@ describe("hdhub4u flat episode series parser", () => {
     const detail = parseDetailPage(FLAT_SERIES_HTML, "house-of-the-dragon-season-3");
     const ep1 = detail.episodes[0];
     expect(ep1.downloads[0].links[0].url).toContain("greenmountmotors.com");
+    expect(ep1.downloads[0].links[0].label).toBe("Drive");
     expect(ep1.watchLinks?.[0].url).toContain("hdstream4u.com");
     expect(ep1.watchLinks?.[0].label).toBe("WATCH");
   });

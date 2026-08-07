@@ -2,10 +2,14 @@ package com.ekhub.app
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.AlertDialog
+import android.app.ProgressDialog
+import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.os.Message
+import android.provider.Settings
 import android.view.View
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -16,8 +20,11 @@ import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ProgressBar
+import java.io.File
+import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import org.json.JSONObject
 
 /**
  * Whitelist-driven WebView shell around the EkHub web app.
@@ -35,6 +42,8 @@ class MainActivity : Activity() {
     private val homeUrl = "https://ekhub.vercel.app/app"
     private val appHost = "ekhub.vercel.app"
     private val whitelistUrl = "https://raw.githubusercontent.com/shirushimori/EkHub/main/whitelist.txt"
+    private val updateFeedUrl = "https://api.github.com/repos/shirushimori/EkHub/releases/latest"
+    private val apkFileName = "ekhub-update.apk"
 
     private val defaultWhitelist = """
         ekhub.vercel.app
@@ -86,6 +95,7 @@ class MainActivity : Activity() {
 
         loadWhitelist()
         addTab(homeUrl)
+        checkForUpdate()
     }
 
     override fun onDestroy() {
@@ -243,6 +253,143 @@ class MainActivity : Activity() {
     private fun parseWhitelist(text: String): List<String> =
         text.lines().map { it.trim().lowercase() }
             .filter { it.isNotEmpty() && !it.startsWith("#") }
+
+    // ── update check ───────────────────────────────────────────────────────
+
+    private fun checkForUpdate() {
+        Thread {
+            runCatching {
+                val conn = URL(updateFeedUrl).openConnection() as HttpURLConnection
+                conn.connectTimeout = 10_000
+                conn.readTimeout = 10_000
+                conn.setRequestProperty("Accept", "application/vnd.github+json")
+                val body = conn.inputStream.bufferedReader().readText()
+                conn.disconnect()
+
+                val json = JSONObject(body)
+                val tag = json.optString("tag_name", "")
+                val notes = json.optString("body", "").trim()
+                val assets = json.optJSONArray("assets")
+                var apkUrl = ""
+                if (assets != null) {
+                    for (i in 0 until assets.length()) {
+                        val a = assets.getJSONObject(i)
+                        if (a.optString("name").endsWith(".apk")) {
+                            apkUrl = a.optString("browser_download_url", "")
+                            break
+                        }
+                    }
+                }
+                if (apkUrl.isEmpty() || tag.isEmpty()) return@runCatching
+
+                val current = runCatching {
+                    packageManager.getPackageInfo(packageName, 0).versionName ?: "0"
+                }.getOrDefault("0")
+
+                if (isNewer(parseVersion(tag), parseVersion(current))) {
+                    runOnUiThread { showUpdateDialog(tag, notes, apkUrl) }
+                }
+            }
+        }.start()
+    }
+
+    private fun parseVersion(v: String): IntArray =
+        v.trim().trimStart('v', 'V').split('.').mapNotNull { it.toIntOrNull() }.toIntArray()
+
+    private fun isNewer(remote: IntArray, current: IntArray): Boolean {
+        val len = maxOf(remote.size, current.size)
+        for (i in 0 until len) {
+            val r = remote.getOrElse(i) { 0 }
+            val c = current.getOrElse(i) { 0 }
+            if (r != c) return r > c
+        }
+        return false
+    }
+
+    private fun showUpdateDialog(version: String, notes: String, apkUrl: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Update available: $version")
+            .setMessage(
+                "A new version of EkHub is ready to install." +
+                    (if (notes.isNotEmpty()) "\n\n$notes" else "")
+            )
+            .setPositiveButton("Update") { _, _ -> startUpdate(apkUrl) }
+            .setNegativeButton("Later", null)
+            .show()
+    }
+
+    private fun startUpdate(apkUrl: String) {
+        if (!packageManager.canRequestPackageInstalls()) {
+            AlertDialog.Builder(this)
+                .setTitle("Allow installs")
+                .setMessage("To install the update, allow EkHub to install apps from this source.")
+                .setPositiveButton("Allow") { _, _ ->
+                    runCatching {
+                        startActivity(
+                            Intent(
+                                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                Uri.parse("package:$packageName")
+                            )
+                        )
+                    }
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+            return
+        }
+        downloadAndInstall(apkUrl)
+    }
+
+    private fun downloadAndInstall(apkUrl: String) {
+        val progressDialog = ProgressDialog(this).apply {
+            setTitle("Downloading update")
+            setMessage("Downloading the latest EkHub APK\u2026")
+            setIndeterminate(true)
+            setCancelable(false)
+        }
+        progressDialog.show()
+
+        Thread {
+            runCatching {
+                val dir = getExternalFilesDir(null) ?: filesDir
+                val apkFile = File(dir, apkFileName)
+                val conn = URL(apkUrl).openConnection() as HttpURLConnection
+                conn.connectTimeout = 15_000
+                conn.readTimeout = 30_000
+                conn.inputStream.use { input ->
+                    FileOutputStream(apkFile).use { output -> input.copyTo(output) }
+                }
+                conn.disconnect()
+                apkFile
+            }.onSuccess { apkFile ->
+                runOnUiThread {
+                    progressDialog.dismiss()
+                    installApk(apkFile)
+                }
+            }.onFailure { e ->
+                runOnUiThread {
+                    progressDialog.dismiss()
+                    AlertDialog.Builder(this)
+                        .setTitle("Update failed")
+                        .setMessage(e.message ?: "Could not download the update.")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }
+        }.start()
+    }
+
+    private fun installApk(apkFile: File) {
+        val uri = Uri.Builder()
+            .scheme("content")
+            .authority("$packageName.apkprovider")
+            .appendPath(apkFile.name)
+            .build()
+        val intent = Intent(Intent.ACTION_VIEW)
+        intent.setDataAndType(uri, "application/vnd.android.package-archive")
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { startActivity(intent) }
+    }
 
     // ── navigation ────────────────────────────────────────────────────────
 

@@ -121,8 +121,10 @@ export default function DetailPage() {
   const movieDetail = isMovieDetail(d) ? d as MovieDetail : null;
   const downloads = d.downloads;
   const episodeDownloads = d.episodeDownloads;
-  const hasDownloads = (downloads && downloads.length > 0) || (episodeDownloads && episodeDownloads.length > 0);
-  const episodeWatchEpisodes = (episodeDownloads || []).filter((ep) => ep.watchLinks && ep.watchLinks.length > 0);
+  const hasDownloads = !!downloads && downloads.length > 0;
+  const episodeItems = (episodeDownloads || []).filter(
+    (ep) => (ep.downloads && ep.downloads.length > 0) || (ep.watchLinks && ep.watchLinks.length > 0)
+  );
   const uniqueGenres = Array.from(new Set(d.genres));
   const screenshots = d.screenshots || [];
   const watchLinks = d.watchLinks || [];
@@ -395,9 +397,10 @@ export default function DetailPage() {
 
           {/* Watch Online */}
           <WatchSection
+            item={d}
             embeddedPlayerUrl={embeddedPlayerUrl}
             watchLinks={watchLinks}
-            episodeWatchEpisodes={episodeWatchEpisodes}
+            episodeDownloads={episodeItems}
             animeSearchUrl={
               isAnimeSource(d) ? `${HIANIME_BASE}/search?keyword=${encodeURIComponent(d.title)}` : ""
             }
@@ -596,7 +599,7 @@ export default function DetailPage() {
           {/* Downloads - mobile */}
           {hasDownloads && (
             <div className="mt-6 lg:hidden">
-              <DownloadSection item={d} downloads={downloads} episodeDownloads={episodeDownloads} />
+              <DownloadSection item={d} downloads={downloads} />
             </div>
           )}
         </div>
@@ -605,7 +608,7 @@ export default function DetailPage() {
         {hasDownloads && (
           <div className="hidden lg:block">
             <div className="sticky top-20">
-              <DownloadSection item={d} downloads={downloads} episodeDownloads={episodeDownloads} />
+              <DownloadSection item={d} downloads={downloads} />
             </div>
           </div>
         )}
@@ -617,24 +620,27 @@ export default function DetailPage() {
 // ── Watch Section ────────────────────────────────────────
 
 function WatchSection({
+  item,
   embeddedPlayerUrl,
   watchLinks,
-  episodeWatchEpisodes,
+  episodeDownloads,
   animeSearchUrl,
   onPlayEmbedded,
   onPlayWatchLink,
 }: {
+  item: MovieDetail | import("@/types/content").ContentItem;
   embeddedPlayerUrl: string;
   watchLinks: DownloadLink[];
-  episodeWatchEpisodes: EpisodeDownload[];
+  episodeDownloads: EpisodeDownload[];
   animeSearchUrl: string;
   onPlayEmbedded: () => void;
   onPlayWatchLink: (link: DownloadLink) => void;
 }) {
   const hasEmbedded = Boolean(embeddedPlayerUrl);
   const hasSources = watchLinks.length > 0;
-  const hasEpisodes = episodeWatchEpisodes.length > 0;
+  const hasEpisodes = episodeDownloads.length > 0;
   const hasAnime = Boolean(animeSearchUrl);
+  const isTrailerEmbed = /youtube|dailymotion|vimeo/i.test(embeddedPlayerUrl);
 
   if (!hasEmbedded && !hasSources && !hasEpisodes && !hasAnime) return null;
 
@@ -653,7 +659,7 @@ function WatchSection({
               className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
             >
               <Play className="h-4 w-4 fill-white" />
-              Watch Now
+              {isTrailerEmbed ? "Trailer" : "Watch Now"}
             </button>
           )}
           {watchLinks.map((link, i) => (
@@ -688,38 +694,101 @@ function WatchSection({
               Episodes
             </span>
             <span className="ml-auto rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent">
-              {episodeWatchEpisodes.length}
+              {episodeDownloads.length}
             </span>
           </div>
           <div className="max-h-[calc(100dvh-6rem)] overflow-y-auto">
-            {episodeWatchEpisodes.map((ep) => (
-              <div key={`${ep.season}-${ep.episode}-${ep.title}`} className="border-b border-border px-4 py-3">
-                <div className="mb-2 flex items-center gap-2">
-                  {ep.episode && (
-                    <span className="shrink-0 rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent">
-                      {ep.episode}
+            {episodeDownloads.map((ep) => {
+              const watches = ep.watchLinks || [];
+              const files = ep.downloads || [];
+              return (
+                <details
+                  key={`${ep.season}-${ep.episode}-${ep.title}`}
+                  className="group border-b border-border"
+                >
+                  <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 transition-colors hover:bg-surface/50">
+                    {ep.episode && (
+                      <span className="shrink-0 rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent">
+                        {ep.episode}
+                      </span>
+                    )}
+                    <span className="flex-1 truncate text-xs font-medium leading-snug text-primary">
+                      {ep.title}
                     </span>
-                  )}
-                  <span className="flex-1 truncate text-xs font-medium leading-snug text-primary">
-                    {ep.title}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {ep.watchLinks!.map((link, k) => (
-                    <a
-                      key={k}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-accent-hover"
-                    >
-                      <Play className="h-3.5 w-3.5 fill-white" />
-                      Watch {link.label && link.label !== "WATCH" ? link.label : "Now"}
-                    </a>
-                  ))}
-                </div>
-              </div>
-            ))}
+                    {watches.length > 0 && (
+                      <span className="shrink-0 rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-semibold text-accent">
+                        Watch
+                      </span>
+                    )}
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-secondary transition-transform group-open:rotate-180" />
+                  </summary>
+
+                  <div className="border-t border-border/50 bg-surface/30 px-4 pb-3 pt-3">
+                    {watches.length > 0 && (
+                      <div className="mb-3 flex flex-wrap gap-2">
+                        {watches.map((link, k) => (
+                          <a
+                            key={k}
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-accent-hover"
+                          >
+                            <Play className="h-3.5 w-3.5 fill-white" />
+                            Watch {link.label && link.label !== "WATCH" ? link.label : "Now"}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+
+                    {files.map((file, fi) => (
+                      <div key={fi} className="mb-3 last:mb-0">
+                        <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                          <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-400">
+                            {file.quality || file.title || "Download"}
+                          </span>
+                          {file.codec && (
+                            <span className="rounded bg-purple-500/20 px-1.5 py-0.5 text-[10px] text-purple-400">
+                              {file.codec}
+                            </span>
+                          )}
+                          {file.fileSize && (
+                            <span className="rounded bg-orange-500/20 px-1.5 py-0.5 text-[10px] text-orange-400">
+                              {file.fileSize}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {file.links.map((link, li) => (
+                            <a
+                              key={li}
+                              href={link.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={() =>
+                                notifyNativeDownload(item, {
+                                  season: ep.season,
+                                  episode: ep.episode,
+                                  fileName: ep.title,
+                                })
+                              }
+                              className="inline-flex items-center gap-1 rounded-lg bg-accent/10 px-3 py-1.5 text-[11px] font-medium text-accent transition-colors hover:bg-accent/20"
+                            >
+                              {link.label}
+                              <ExternalLink className="h-3 w-3 shrink-0" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+
+                    {watches.length === 0 && files.length === 0 && (
+                      <p className="text-xs text-secondary">No links available.</p>
+                    )}
+                  </div>
+                </details>
+              );
+            })}
           </div>
         </div>
       )}
@@ -732,39 +801,25 @@ function WatchSection({
 function DownloadSection({
   item,
   downloads,
-  episodeDownloads,
 }: {
   item: MovieDetail | import("@/types/content").ContentItem;
   downloads?: DownloadPack[];
-  episodeDownloads?: EpisodeDownload[];
 }) {
-  const seasonMap = new Map<string, Map<string, DownloadPack[]>>();
-  for (const dl of downloads || []) {
+  const packs = downloads || [];
+  const seasonMap = new Map<string, DownloadPack[]>();
+  for (const dl of packs) {
     const season = dl.season || "default";
-    const format = dl.format || "default";
-    if (!seasonMap.has(season)) seasonMap.set(season, new Map());
-    const fmtMap = seasonMap.get(season)!;
-    if (!fmtMap.has(format)) fmtMap.set(format, []);
-    fmtMap.get(format)!.push(dl);
+    if (!seasonMap.has(season)) seasonMap.set(season, []);
+    seasonMap.get(season)!.push(dl);
   }
 
-  const epSeasonMap = new Map<string, Map<string, EpisodeDownload[]>>();
-  for (const ep of episodeDownloads || []) {
-    const season = ep.season || "default";
-    const format = ep.format || "default";
-    if (!epSeasonMap.has(season)) epSeasonMap.set(season, new Map());
-    const fmtMap = epSeasonMap.get(season)!;
-    if (!fmtMap.has(format)) fmtMap.set(format, []);
-    fmtMap.get(format)!.push(ep);
-  }
-
-  const totalItems = (downloads?.length || 0) + (episodeDownloads?.length || 0);
-  const hasSeasons = seasonMap.size > 1 || epSeasonMap.size > 1;
-  const seasonKeys = Array.from(new Set([...seasonMap.keys(), ...epSeasonMap.keys()]))
+  const totalItems = packs.length;
+  const hasSeasons = seasonMap.size > 1;
+  const seasonKeys = Array.from(seasonMap.keys())
     .filter((s) => s !== "default")
     .sort();
 
-  if (seasonKeys.length === 0 && (seasonMap.has("default") || epSeasonMap.has("default"))) {
+  if (seasonKeys.length === 0 && seasonMap.has("default")) {
     seasonKeys.push("default");
   }
 
@@ -782,15 +837,11 @@ function DownloadSection({
 
       <div className="max-h-[calc(100dvh-6rem)] overflow-y-auto">
         {seasonKeys.map((season) => {
-          const fmtMap = seasonMap.get(season);
-          const epFmtMap = epSeasonMap.get(season);
-          const formats = Array.from(new Set([
-            ...Array.from(fmtMap?.keys() || []),
-            ...Array.from(epFmtMap?.keys() || []),
-          ])).filter((f) => f !== "default");
-
-          const hasDefaultPack = fmtMap?.has("default");
-          const hasDefaultEp = epFmtMap?.has("default");
+          const seasonPacks = seasonMap.get(season) || [];
+          const formats = Array.from(
+            new Set(seasonPacks.map((p) => p.format).filter((f) => f && f !== "default"))
+          );
+          const defaultPacks = seasonPacks.filter((p) => !p.format || p.format === "default");
           const showSeasonHeader = hasSeasons && season !== "default";
 
           return (
@@ -803,12 +854,8 @@ function DownloadSection({
                 </div>
               )}
 
-              {hasDefaultPack && fmtMap!.get("default")!.map((dl, i) => (
+              {defaultPacks.map((dl, i) => (
                 <PackItem key={`p-${season}-${i}`} item={item} dl={dl} />
-              ))}
-
-              {hasDefaultEp && epFmtMap!.get("default")!.map((ep, i) => (
-                <EpisodeItem key={`e-${season}-${i}`} item={item} ep={ep} />
               ))}
 
               {formats.map((format) => (
@@ -819,13 +866,11 @@ function DownloadSection({
                     </span>
                   </div>
 
-                  {fmtMap?.get(format)?.map((dl, i) => (
-                    <PackItem key={`p-${season}-${format}-${i}`} item={item} dl={dl} />
-                  ))}
-
-                  {epFmtMap?.get(format)?.map((ep, i) => (
-                    <EpisodeItem key={`e-${season}-${format}-${i}`} item={item} ep={ep} />
-                  ))}
+                  {seasonPacks
+                    .filter((p) => p.format === format)
+                    .map((dl, i) => (
+                      <PackItem key={`p-${season}-${format}-${i}`} item={item} dl={dl} />
+                    ))}
                 </div>
               ))}
             </div>
@@ -885,91 +930,6 @@ function PackItem({ item, dl }: { item: MovieDetail | import("@/types/content").
               <span className="truncate">{link.label}</span>
               <ExternalLink className="ml-2 h-3 w-3 shrink-0" />
             </a>
-          ))}
-        </div>
-      </div>
-    </details>
-  );
-}
-
-// ── Episode Item ──────────────────────────────────────────
-
-function EpisodeItem({ item, ep }: { item: MovieDetail | import("@/types/content").ContentItem; ep: EpisodeDownload }) {
-  return (
-    <details className="group border-b border-border">
-      <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 transition-colors hover:bg-surface/50">
-        {ep.episode && (
-          <span className="shrink-0 rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent">
-            {ep.episode}
-          </span>
-        )}
-        <span className="flex-1 text-xs font-medium leading-snug">
-          {ep.title}
-        </span>
-        <span className="text-[10px] text-secondary">
-          {ep.downloads.length} file{ep.downloads.length !== 1 ? "s" : ""}
-        </span>
-        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-secondary transition-transform group-open:rotate-180" />
-      </summary>
-
-      <div className="border-t border-border/50 bg-surface/30 px-4 pb-3 pt-2">
-        <div className="flex flex-col gap-2">
-          {ep.downloads.map((file, j) => (
-            <details key={j} className="group/file">
-              <summary className="flex cursor-pointer items-center gap-2 rounded-lg bg-surface/50 px-3 py-2 transition-colors hover:bg-surface">
-                <span className="flex-1 text-[11px] font-medium text-primary">
-                  {file.title}
-                </span>
-                {file.fileSize && (
-                  <span className="rounded bg-orange-500/20 px-1.5 py-0.5 text-[10px] text-orange-400">
-                    {file.fileSize}
-                  </span>
-                )}
-                <ChevronDown className="h-3 w-3 shrink-0 text-secondary transition-transform group-open/file:rotate-180" />
-              </summary>
-
-              <div className="ml-2 mt-1 flex flex-col gap-1 border-l-2 border-border pl-3">
-                <div className="flex flex-wrap gap-1 py-1">
-                  {file.quality && (
-                    <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[10px] text-blue-400">
-                      {file.quality}
-                    </span>
-                  )}
-                  {file.language && (
-                    <span className="rounded bg-teal-500/20 px-1.5 py-0.5 text-[10px] text-teal-400">
-                      {file.language}
-                    </span>
-                  )}
-                  {file.codec && (
-                    <span className="rounded bg-purple-500/20 px-1.5 py-0.5 text-[10px] text-purple-400">
-                      {file.codec}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  {file.links.map((link, k) => (
-                    <a
-                      key={k}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() =>
-                        notifyNativeDownload(item, {
-                          season: ep.season,
-                          episode: ep.episode,
-                          fileName: ep.title,
-                        })
-                      }
-                      className="flex items-center justify-between rounded-lg bg-accent/10 px-3 py-1.5 text-[11px] font-medium text-accent transition-colors hover:bg-accent/20"
-                    >
-                      <span className="truncate">{link.label}</span>
-                      <ExternalLink className="ml-2 h-3 w-3 shrink-0" />
-                    </a>
-                  ))}
-                </div>
-              </div>
-            </details>
           ))}
         </div>
       </div>

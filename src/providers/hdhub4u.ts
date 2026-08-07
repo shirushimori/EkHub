@@ -225,14 +225,16 @@ function parseFlatEpisodeHeadings(container: Element): EpisodeDownload[] {
       if (/watch/i.test(label) || /hdstream4u|hubstream|player\.|videasy|autoembed/i.test(href)) {
         current.watchLinks!.push({ label: label || "Watch", url: href });
       } else {
+        const isEpLabel = EPISODE_RE.test(label);
+        const qualityMatch = label.match(/(4K|2160p|1080p|720p|480p)/i);
         current.downloads.push({
-          title: label || href,
+          title: isEpLabel ? "Download" : label || href,
           format: "",
-          quality: "",
+          quality: isEpLabel ? "" : qualityMatch ? qualityMatch[1] : "",
           language: "",
           codec: "",
           fileSize: "",
-          links: [{ label: label || "Download", url: href }],
+          links: [{ label: isEpLabel ? "Drive" : label || "Download", url: href }],
         });
       }
     }
