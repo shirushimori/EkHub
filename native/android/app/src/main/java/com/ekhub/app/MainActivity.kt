@@ -15,6 +15,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -99,6 +100,8 @@ class MainActivity : Activity() {
         btnDownloads.setOnClickListener { openDownloads() }
 
         loadWhitelist()
+        AdBlocker.loadBundled(this)
+        AdBlocker.refresh(this)
         addTab(homeUrl)
         checkForUpdate()
 
@@ -202,6 +205,16 @@ class MainActivity : Activity() {
                     return true
                 }
                 return false
+            }
+
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                return if (AdBlocker.isBlocked(request.url)) AdBlocker.emptyResponse() else null
+            }
+
+            @Deprecated("Deprecated in Java")
+            override fun shouldInterceptRequest(view: WebView, url: String): WebResourceResponse? {
+                val uri = Uri.parse(url)
+                return if (AdBlocker.isBlocked(uri)) AdBlocker.emptyResponse() else null
             }
 
             override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
