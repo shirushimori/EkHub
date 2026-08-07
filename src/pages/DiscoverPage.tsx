@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { PosterCard } from "@/components/cards/PosterCard";
 import { GenreCard } from "@/components/cards/GenreCard";
 import { SectionHeader } from "@/components/ui/SectionHeader";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useContentStore } from "@/stores/contentStore";
 import { Link } from "react-router";
@@ -48,8 +49,7 @@ export default function DiscoverPage() {
     <div className="px-4 py-6 md:px-8">
       <SectionHeader title="Discover" subtitle="Explore all content" />
 
-      <section className="mb-8">
-        <SectionHeader title="Browse by Genre" />
+      <CollapsibleSection title="Browse by Genre" defaultOpen>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {GENRES.map((genre) => (
             <Link key={genre} to={`/search?q=${encodeURIComponent(genre)}`}>
@@ -57,13 +57,12 @@ export default function DiscoverPage() {
             </Link>
           ))}
         </div>
-      </section>
+      </CollapsibleSection>
 
-      <section>
-        <SectionHeader
-          title="All Content"
-          subtitle={`${unique.length} titles loaded`}
-        />
+      <CollapsibleSection
+        title="All Content"
+        subtitle={`${unique.length} titles loaded`}
+      >
         <div className="grid grid-cols-3 gap-x-3 gap-y-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
           {unique.length > 0
             ? unique.map((item) => (
@@ -78,7 +77,7 @@ export default function DiscoverPage() {
                 <Skeleton key={i} className="aspect-[2/3] rounded-xl" />
               ))}
         </div>
-      </section>
+      </CollapsibleSection>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { PosterCard } from "@/components/cards/PosterCard";
 import { Carousel } from "@/components/carousel/Carousel";
 import { SectionHeader } from "@/components/ui/SectionHeader";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useContentStore } from "@/stores/contentStore";
 
@@ -16,8 +17,7 @@ export default function SeriesPage() {
     <div className="px-4 py-6 md:px-8">
       <SectionHeader title="Series" subtitle="Binge the best TV series" />
 
-      <section className="mb-8">
-        <SectionHeader title="Popular Series" />
+      <CollapsibleSection title="Popular Series" defaultOpen>
         <Carousel>
           {series.length > 0
             ? series.slice(0, 15).map((item) => (
@@ -34,13 +34,12 @@ export default function SeriesPage() {
                 />
               ))}
         </Carousel>
-      </section>
+      </CollapsibleSection>
 
-      <section>
-        <SectionHeader
-          title="All Series"
-          subtitle={`${series.length} series loaded`}
-        />
+      <CollapsibleSection
+        title="All Series"
+        subtitle={`${series.length} series loaded`}
+      >
         <div className="grid grid-cols-3 gap-x-3 gap-y-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
           {series.length > 0
             ? series.map((item) => (
@@ -55,7 +54,7 @@ export default function SeriesPage() {
                 <Skeleton key={i} className="aspect-[2/3] rounded-xl" />
               ))}
         </div>
-      </section>
+      </CollapsibleSection>
     </div>
   );
 }

@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router";
-import { ArrowLeft, Star, Play, ExternalLink, ChevronDown, Download, Globe, X, Camera, BookOpen, MessageSquare, MonitorSmartphone, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ArrowLeft, Star, Play, ExternalLink, ChevronDown, Download, Globe, X, MonitorSmartphone, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useContentStore } from "@/stores/contentStore";
 import { posterUrl, typeLabel, type MovieDetail } from "@/types/content";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { getMovieWatchProviders } from "@/providers/tmdb";
 import type { DownloadLink, DownloadPack, EpisodeDownload } from "@/types/scraper";
 import type { ScraperSource } from "@/types/scraper";
@@ -503,21 +504,20 @@ export default function DetailPage() {
 
           {/* Description */}
           {d.description && (
-            <p className="mb-6 text-sm leading-relaxed text-secondary select-auto">
-              {d.description}
-            </p>
+            <CollapsibleSection title="Description" defaultOpen>
+              <p className="mb-6 text-sm leading-relaxed text-secondary select-auto">
+                {d.description}
+              </p>
+            </CollapsibleSection>
           )}
 
           {/* Cast */}
           {movieDetail && movieDetail.cast.length > 0 && (
-            <div className="mb-6">
-              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wider text-secondary">
-                Cast
-              </h3>
-              <p className="text-sm text-secondary select-auto">
+            <CollapsibleSection title="Cast">
+              <p className="mb-6 text-sm text-secondary select-auto">
                 {movieDetail.cast.map((c) => c.name).join(", ")}
               </p>
-            </div>
+            </CollapsibleSection>
           )}
 
           {/* Trailer */}
@@ -537,12 +537,8 @@ export default function DetailPage() {
 
           {/* Screenshots */}
           {screenshots.length > 0 && (
-            <div className="mb-6">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-secondary">
-                <Camera className="h-4 w-4" />
-                Screenshots
-              </h3>
-              <div className="group relative">
+            <CollapsibleSection title="Screenshots">
+              <div className="mb-6 group relative">
                 <div
                   ref={scrollContainerRef}
                   className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin"
@@ -586,33 +582,25 @@ export default function DetailPage() {
                   </>
                 )}
               </div>
-            </div>
+            </CollapsibleSection>
           )}
 
           {/* Storyline */}
           {storyline && (
-            <div className="mb-6">
-              <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-secondary">
-                <BookOpen className="h-4 w-4" />
-                Storyline
-              </h3>
-              <p className="text-sm leading-relaxed text-secondary select-auto">
+            <CollapsibleSection title="Storyline">
+              <p className="mb-6 text-sm leading-relaxed text-secondary select-auto">
                 {storyline}
               </p>
-            </div>
+            </CollapsibleSection>
           )}
 
           {/* Review */}
           {review && (
-            <div className="mb-6">
-              <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-secondary">
-                <MessageSquare className="h-4 w-4" />
-                Review
-              </h3>
-              <p className="text-sm leading-relaxed text-secondary select-auto">
+            <CollapsibleSection title="Review">
+              <p className="mb-6 text-sm leading-relaxed text-secondary select-auto">
                 {review}
               </p>
-            </div>
+            </CollapsibleSection>
           )}
 
           {/* Downloads - mobile */}

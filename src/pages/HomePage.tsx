@@ -3,7 +3,7 @@ import { useContentStore } from "@/stores/contentStore";
 import { PosterCard } from "@/components/cards/PosterCard";
 import { GenreCard } from "@/components/cards/GenreCard";
 import { Carousel } from "@/components/carousel/Carousel";
-import { SectionHeader } from "@/components/ui/SectionHeader";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { HeroBanner } from "@/components/layout/HeroBanner";
 import type { ContentItem } from "@/types/content";
@@ -29,14 +29,15 @@ function ContentRow({
   title,
   items,
   size,
+  defaultOpen,
 }: {
   title: string;
   items: ContentItem[];
   size?: "sm" | "md" | "lg";
+  defaultOpen?: boolean;
 }) {
   return (
-    <section>
-      <SectionHeader title={title} />
+    <CollapsibleSection title={title} defaultOpen={defaultOpen}>
       <Carousel>
         {items.length > 0
           ? items.map((item) => (
@@ -53,7 +54,7 @@ function ContentRow({
               />
             ))}
       </Carousel>
-    </section>
+    </CollapsibleSection>
   );
 }
 
@@ -86,10 +87,10 @@ export default function HomePage() {
           title="Trending Now"
           items={trending.slice(0, 20)}
           size="lg"
+          defaultOpen
         />
 
-        <section>
-          <SectionHeader title="Browse by Genre" />
+        <CollapsibleSection title="Browse by Genre">
           <Carousel spacing="gap-2">
             {GENRES.map((genre) => (
               <Link
@@ -100,7 +101,7 @@ export default function HomePage() {
               </Link>
             ))}
           </Carousel>
-        </section>
+        </CollapsibleSection>
 
         <ContentRow
           title="Popular"
