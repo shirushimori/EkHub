@@ -45,6 +45,11 @@ import org.json.JSONObject
  *   navigate; closing the top tab lands on the previous one).
  * - Everything not whitelisted is blocked — it never opens in the app and
  *   never opens in the external browser.
+ * - Ad/tracker blocking is active on every in-app page (popup/overlay ad
+ *   scripts are injected on the site pages, not just the player). Host lists
+ *   start from a bundled blocklist and refresh to AdAway/StevenBlack on first
+ *   load. Popups (window.open / target=_blank) are disabled at the settings
+ *   level so no popup window can ever spawn.
  * - Download links from the web app are handed off to the default external
  *   browser via the EkHubNative bridge.
  * - A popout button opens the current page in the default browser; it shows
@@ -76,15 +81,6 @@ class MainActivity : Activity() {
     """.trimIndent()
 
     private class Tab(val webView: WebView)
-
-    // Ad blocking only kicks in while viewing a video player page.
-    private val videoPlayerHosts = listOf(
-        "player.videasy.net",
-        "player.autoembed.cc",
-        "hubstream",
-        "hdstream4u",
-        "player."
-    )
 
     private val tabs = ArrayList<Tab>()
     private var activeIndex = -1
@@ -215,7 +211,11 @@ class MainActivity : Activity() {
         wv.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            javaScriptCanOpenWindowsAutomatically = true
+            // Hard popup kill switch: window.open()/target=_blank popups never
+            // spawn (window.open returns null). Legit cross-host links still
+            // open new tabs via shouldOverrideUrlLoading.
+            javaScriptCanOpenWindowsAutomatically = false
+            setSupportMultipleWindows(false)
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             mediaPlaybackRequiresUserGesture = false
             setSupportZoom(false)
@@ -250,23 +250,23 @@ class MainActivity : Activity() {
             }
 
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
-                // Ad blocking is scoped to video player pages only.
-                if (!adsActive(view.url) && !adsActive(request.url.toString())) return null
+                // Ad blocking is active on every in-app page (that's where the
+                // popup/overlay ad scripts are injected — not just the player).
                 return if (AdBlocker.isBlocked(request.url)) AdBlocker.emptyResponse() else null
             }
 
             @Deprecated("Deprecated in Java")
             override fun shouldInterceptRequest(view: WebView, url: String): WebResourceResponse? {
                 val uri = Uri.parse(url)
-                if (!adsActive(view.url) && !adsActive(uri.toString())) return null
                 return if (AdBlocker.isBlocked(uri)) AdBlocker.emptyResponse() else null
             }
 
             override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
                 progress.visibility = View.VISIBLE
                 updateToolbar()
-                if (!adblockRefreshed && url != null && isVideoPlayerHost(Uri.parse(url).host)) {
+                if (!adblockRefreshed) {
                     adblockRefreshed = true
+                    // Pull the full AdAway/StevenBlack lists once, on first load.
                     AdBlocker.refresh(this@MainActivity)
                 }
             }
@@ -704,16 +704,6 @@ class MainActivity : Activity() {
         val host = uri.host?.lowercase() ?: return false
         return whitelist.any { host.contains(it) }
     }
-
-    /** Video player hosts (embedded players, streaming mirrors). Ad blocking
-     *  is limited to these — everything else loads untouched. */
-    private fun isVideoPlayerHost(host: String?): Boolean {
-        val h = host?.lowercase() ?: return false
-        return videoPlayerHosts.any { h.contains(it) }
-    }
-
-    private fun adsActive(pageUrl: String?): Boolean =
-        pageUrl?.let { isVideoPlayerHost(Uri.parse(it).host) } == true
 
     /**
      * Popout: opens the current page in the default external browser. The
