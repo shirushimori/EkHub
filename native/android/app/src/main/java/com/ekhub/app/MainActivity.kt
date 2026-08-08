@@ -75,6 +75,7 @@ class MainActivity : Activity() {
     private lateinit var btnHome: ImageButton
     private lateinit var btnBack: ImageButton
     private lateinit var btnForward: ImageButton
+    private lateinit var btnReload: ImageButton
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,6 +87,7 @@ class MainActivity : Activity() {
         btnHome = findViewById(R.id.btn_home)
         btnBack = findViewById(R.id.btn_back)
         btnForward = findViewById(R.id.btn_forward)
+        btnReload = findViewById(R.id.btn_reload)
 
         btnHome.setOnClickListener { activeTab()?.webView?.loadUrl(homeUrl) }
         btnBack.setOnClickListener {
@@ -95,6 +97,9 @@ class MainActivity : Activity() {
         btnForward.setOnClickListener {
             val wv = activeTab()?.webView ?: return@setOnClickListener
             if (wv.canGoForward()) wv.goForward()
+        }
+        btnReload.setOnClickListener {
+            activeTab()?.webView?.reload()
         }
 
         loadWhitelist()
