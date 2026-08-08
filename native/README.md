@@ -21,8 +21,9 @@ bash native/linux/build-run.sh
 
 Installs to `~/.local/share/ekhub`, adds an app-menu entry, and launches a
 status window that bootstraps the app (Node.js, source, build, localhost),
-then opens a webview window (falls back to the default browser if
-pywebview/WebKit isn't available).
+then opens a **WebKit2GTK** window (falls back to the default browser if
+WebKit2GTK isn't available). The HTML5 Fullscreen API is enabled, so the
+player's fullscreen button works natively.
 
 ### Windows — `EkHub.exe` (pywebview + PyInstaller)
 

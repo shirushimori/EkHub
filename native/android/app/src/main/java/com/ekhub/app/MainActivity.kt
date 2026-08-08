@@ -16,6 +16,7 @@ import android.os.Bundle
 import android.os.Message
 import android.provider.Settings
 import android.view.View
+import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -26,6 +27,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.ProgressBar
 import java.io.File
 import java.io.FileOutputStream
@@ -81,11 +83,15 @@ class MainActivity : Activity() {
 
     private lateinit var webContainer: FrameLayout
     private lateinit var progress: ProgressBar
+    private lateinit var toolbar: LinearLayout
     private lateinit var btnHome: ImageButton
     private lateinit var btnBack: ImageButton
     private lateinit var btnForward: ImageButton
     private lateinit var btnReload: ImageButton
     private lateinit var btnPopout: ImageButton
+
+    private var customView: View? = null
+    private var customViewCallback: WebChromeClient.CustomViewCallback? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -94,6 +100,7 @@ class MainActivity : Activity() {
 
         webContainer = findViewById(R.id.web_container)
         progress = findViewById(R.id.progress)
+        toolbar = findViewById(R.id.toolbar)
         btnHome = findViewById(R.id.btn_home)
         btnBack = findViewById(R.id.btn_back)
         btnForward = findViewById(R.id.btn_forward)
@@ -137,7 +144,13 @@ class MainActivity : Activity() {
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        if (isCustomViewShowing()) hideCustomView()
+    }
+
     override fun onDestroy() {
+        if (isCustomViewShowing()) hideCustomView()
         for (tab in tabs) runCatching { tab.webView.destroy() }
         tabs.clear()
         runCatching { unregisterReceiver(installReceiver) }
@@ -264,6 +277,14 @@ class MainActivity : Activity() {
             ): Boolean {
                 return handleNewWindow(resultMsg)
             }
+
+            override fun onShowCustomView(view: View, callback: CustomViewCallback) {
+                showCustomView(view, callback)
+            }
+
+            override fun onHideCustomView() {
+                hideCustomView()
+            }
         }
 
         wv.addJavascriptInterface(EkHubNativeBridge(), "EkHubNative")
@@ -292,6 +313,60 @@ class MainActivity : Activity() {
                 }
             }
         }
+    }
+
+    // ── fullscreen (custom view) ─────────────────────────────────────────
+
+    private fun isCustomViewShowing(): Boolean = customView != null
+
+    /** Called when the page requests fullscreen (e.g. the player popup button). */
+    private fun showCustomView(view: View, callback: WebChromeClient.CustomViewCallback) {
+        if (isCustomViewShowing()) {
+            callback.onCustomViewHidden()
+            return
+        }
+        customView = view
+        customViewCallback = callback
+        activeTab()?.webView?.let { wv ->
+            if (wv.parent != null) webContainer.removeView(wv)
+        }
+        (view.parent as? ViewGroup)?.removeView(view)
+        webContainer.addView(
+            view,
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
+        toolbar.visibility = View.GONE
+        progress.visibility = View.GONE
+        hideSystemUI()
+    }
+
+    private fun hideCustomView() {
+        val view = customView ?: return
+        customView = null
+        customViewCallback?.onCustomViewHidden()
+        customViewCallback = null
+        webContainer.removeView(view)
+        toolbar.visibility = View.VISIBLE
+        showSystemUI()
+        activeTab()?.webView?.let { wv ->
+            if (wv.parent == null) {
+                webContainer.addView(wv, 0)
+                wv.requestFocus()
+            }
+        }
+    }
+
+    private fun hideSystemUI() {
+        window.decorView.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                or View.SYSTEM_UI_FLAG_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        )
+    }
+
+    private fun showSystemUI() {
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
     }
 
     // ── whitelist ─────────────────────────────────────────────────────────
@@ -631,6 +706,10 @@ class MainActivity : Activity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
+        if (isCustomViewShowing()) {
+            hideCustomView()
+            return
+        }
         val wv = activeTab()?.webView
         when {
             wv?.canGoBack() == true -> wv.goBack()

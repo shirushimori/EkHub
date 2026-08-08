@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router";
-import { ArrowLeft, Star, Play, ExternalLink, ChevronDown, Download, Globe, X, MonitorSmartphone, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ArrowLeft, Star, Play, ExternalLink, ChevronDown, Download, Globe, X, MonitorSmartphone, ChevronLeft, ChevronRight } from "lucide-react";
 import { useContentStore } from "@/stores/contentStore";
 import { posterUrl, typeLabel, type MovieDetail } from "@/types/content";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+import { PlayerModal } from "@/components/ui/PlayerModal";
 import { getMovieWatchProviders } from "@/providers/tmdb";
 import type { DownloadLink, DownloadPack, EpisodeDownload } from "@/types/scraper";
 import type { ScraperSource } from "@/types/scraper";
@@ -277,31 +278,13 @@ export default function DetailPage() {
 
       {/* Embedded Player Overlay */}
       {showPlayer && embeddedPlayerUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setShowPlayer(false)}>
-          <div className="relative w-full max-w-4xl px-4" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setShowPlayer(false)}
-              className="absolute -top-10 right-0 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            <div className="relative aspect-video overflow-hidden rounded-xl bg-black shadow-2xl">
-              {playerLoading && (
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black">
-                  <Loader2 className="h-8 w-8 animate-spin text-accent" />
-                  <span className="text-xs text-secondary">Loading player…</span>
-                </div>
-              )}
-              <iframe
-                src={embeddedPlayerUrl}
-                className="h-full w-full"
-                allowFullScreen
-                allow="autoplay; encrypted-media"
-                onLoad={() => setPlayerLoading(false)}
-              />
-            </div>
-          </div>
-        </div>
+        <PlayerModal
+          src={embeddedPlayerUrl}
+          title={d.title}
+          loading={playerLoading}
+          onLoad={() => setPlayerLoading(false)}
+          onClose={() => setShowPlayer(false)}
+        />
       )}
 
       {/* 3-column: Poster | Info | Downloads panel */}
@@ -554,35 +537,13 @@ export default function DetailPage() {
 
           {/* Watch Link Player Overlay */}
           {showWatchLinkPlayer && activeWatchLink && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => { setShowWatchLinkPlayer(false); setActiveWatchLink(null); }}>
-              <div className="relative w-full max-w-5xl px-4" onClick={(e) => e.stopPropagation()}>
-                <button
-                  onClick={() => { setShowWatchLinkPlayer(false); setActiveWatchLink(null); }}
-                  className="absolute -top-10 right-0 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-                <div className="relative aspect-video overflow-hidden rounded-xl bg-black shadow-2xl">
-                  {playerLoading && (
-                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black">
-                      <Loader2 className="h-8 w-8 animate-spin text-accent" />
-                      <span className="text-xs text-secondary">Loading player…</span>
-                    </div>
-                  )}
-                  <iframe
-                    src={activeWatchLink.url}
-                    className="h-full w-full border-0"
-                    allowFullScreen
-                    allow="autoplay; encrypted-media"
-                    referrerPolicy="no-referrer"
-                    onLoad={() => setPlayerLoading(false)}
-                  />
-                </div>
-                <p className="mt-2 text-center text-xs text-secondary">
-                  {activeWatchLink.label}
-                </p>
-              </div>
-            </div>
+            <PlayerModal
+              src={activeWatchLink.url}
+              title={activeWatchLink.label}
+              loading={playerLoading}
+              onLoad={() => setPlayerLoading(false)}
+              onClose={() => { setShowWatchLinkPlayer(false); setActiveWatchLink(null); }}
+            />
           )}
 
           {/* Screenshot Lightbox */}
