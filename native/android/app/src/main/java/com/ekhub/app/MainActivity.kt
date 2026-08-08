@@ -3,8 +3,13 @@ package com.ekhub.app
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.PendingIntent
 import android.app.ProgressDialog
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageInstaller
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
@@ -24,6 +29,7 @@ import android.widget.ImageButton
 import android.widget.ProgressBar
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import org.json.JSONObject
@@ -48,6 +54,7 @@ class MainActivity : Activity() {
     private val whitelistUrl = "https://raw.githubusercontent.com/shirushimori/EkHub/main/whitelist.txt"
     private val updateFeedUrl = "https://api.github.com/repos/shirushimori/EkHub/releases/latest"
     private val apkFileName = "ekhub-update.apk"
+    private val INSTALL_RESULT_ACTION = "com.ekhub.app.INSTALL_RESULT"
 
     private val defaultWhitelist = """
         ekhub.vercel.app
@@ -105,6 +112,7 @@ class MainActivity : Activity() {
         loadWhitelist()
         AdBlocker.loadBundled(this)
         AdBlocker.refresh(this)
+        registerInstallReceiver()
         addTab(homeUrl)
         checkForUpdate()
 
@@ -125,6 +133,7 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         for (tab in tabs) runCatching { tab.webView.destroy() }
         tabs.clear()
+        runCatching { unregisterReceiver(installReceiver) }
         super.onDestroy()
     }
 
@@ -424,16 +433,7 @@ class MainActivity : Activity() {
 
         Thread {
             runCatching {
-                val dir = getExternalFilesDir(null) ?: filesDir
-                val apkFile = File(dir, apkFileName)
-                val conn = URL(apkUrl).openConnection() as HttpURLConnection
-                conn.connectTimeout = 15_000
-                conn.readTimeout = 30_000
-                conn.inputStream.use { input ->
-                    FileOutputStream(apkFile).use { output -> input.copyTo(output) }
-                }
-                conn.disconnect()
-                apkFile
+                downloadApk(apkUrl)
             }.onSuccess { apkFile ->
                 runOnUiThread {
                     progressDialog.dismiss()
@@ -452,16 +452,108 @@ class MainActivity : Activity() {
         }.start()
     }
 
+    /**
+     * Downloads the update APK and validates it before handing it to the
+     * installer. A previous bug downloaded whatever the server returned without
+     * checks, so a redirect HTML page or truncated body was handed to the
+     * package installer → "App not installed as package appears to be invalid".
+     */
+    private fun downloadApk(apkUrl: String): File {
+        val dir = getExternalFilesDir(null) ?: filesDir
+        val apkFile = File(dir, apkFileName)
+        val conn = URL(apkUrl).openConnection() as HttpURLConnection
+        try {
+            conn.instanceFollowRedirects = true
+            conn.connectTimeout = 15_000
+            conn.readTimeout = 30_000
+            val status = conn.responseCode
+            if (status !in 200..299) {
+                throw IOException("Server returned HTTP $status")
+            }
+
+            val input = conn.inputStream
+            val output = FileOutputStream(apkFile)
+            input.use { i -> output.use { o -> i.copyTo(o) } }
+
+            val contentLength = conn.contentLength
+            if (contentLength > 0 && apkFile.length() != contentLength.toLong()) {
+                throw IOException("Download incomplete (${apkFile.length()} of $contentLength bytes)")
+            }
+        } finally {
+            conn.disconnect()
+        }
+
+        // Validate it's a real APK (ZIP magic: "PK\x03\x04") — cheap guard
+        // against error pages / HTML being saved with a .apk name.
+        val magic = apkFile.inputStream().use { i ->
+            val b = ByteArray(4)
+            val n = i.read(b)
+            n == 4 && b[0] == 'P'.code.toByte() && b[1] == 'K'.code.toByte() && b[2] == 3.toByte() && b[3] == 4.toByte()
+        }
+        if (!magic || apkFile.length() == 0L) {
+            apkFile.delete()
+            throw IOException("Downloaded file is not a valid APK")
+        }
+
+        return apkFile
+    }
+
     private fun installApk(apkFile: File) {
-        val uri = Uri.Builder()
-            .scheme("content")
-            .authority("$packageName.apkprovider")
-            .appendPath(apkFile.name)
-            .build()
-        val intent = Intent(Intent.ACTION_VIEW)
-        intent.setDataAndType(uri, "application/vnd.android.package-archive")
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-        runCatching { startActivity(intent) }
+        val installer = packageManager.packageInstaller
+        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+        try {
+            val sessionId = installer.createSession(params)
+            val session = installer.openSession(sessionId)
+            session.openWrite("package", 0, -1).use { out ->
+                apkFile.inputStream().use { input -> input.copyTo(out) }
+            }
+            val callbackIntent = PendingIntent.getBroadcast(
+                this,
+                sessionId,
+                Intent(INSTALL_RESULT_ACTION).setPackage(packageName),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            )
+            session.commit(callbackIntent.intentSender)
+            session.close()
+        } catch (e: Exception) {
+            AlertDialog.Builder(this)
+                .setTitle("Update failed")
+                .setMessage(e.message ?: "Could not start the installation.")
+                .setPositiveButton("OK", null)
+                .show()
+        }
+    }
+
+    private fun registerInstallReceiver() {
+        registerReceiver(
+            installReceiver,
+            IntentFilter(INSTALL_RESULT_ACTION),
+            Context.RECEIVER_NOT_EXPORTED
+        )
+    }
+
+    private val installReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
+            val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
+            val title = when (status) {
+                PackageInstaller.STATUS_SUCCESS -> "Update installed"
+                PackageInstaller.STATUS_PENDING_USER_ACTION -> "Update"
+                else -> "Update failed"
+            }
+            val text = when (status) {
+                PackageInstaller.STATUS_SUCCESS -> "EkHub updated successfully."
+                PackageInstaller.STATUS_PENDING_USER_ACTION -> "Follow the on-screen prompt to finish the update."
+                else -> message ?: "The update could not be installed."
+            }
+            runOnUiThread {
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle(title)
+                    .setMessage(text)
+                    .setPositiveButton("OK", null)
+                    .show()
+            }
+        }
     }
 
     // ── navigation ────────────────────────────────────────────────────────
