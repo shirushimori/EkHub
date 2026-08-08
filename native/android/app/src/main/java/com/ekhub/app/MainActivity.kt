@@ -326,11 +326,25 @@ class MainActivity : Activity() {
                 val assets = json.optJSONArray("assets")
                 var apkUrl = ""
                 if (assets != null) {
+                    // Prefer the release's EkHub.apk asset — the locally-built
+                    // APK signed with the app's stable key. CI also uploads an
+                    // app-release.apk built with a fresh keystore each run, which
+                    // would fail to install over the existing app (signature
+                    // mismatch / "package conflicts").
                     for (i in 0 until assets.length()) {
                         val a = assets.getJSONObject(i)
-                        if (a.optString("name").endsWith(".apk")) {
+                        if (a.optString("name") == "EkHub.apk") {
                             apkUrl = a.optString("browser_download_url", "")
                             break
+                        }
+                    }
+                    if (apkUrl.isEmpty()) {
+                        for (i in 0 until assets.length()) {
+                            val a = assets.getJSONObject(i)
+                            if (a.optString("name").endsWith(".apk")) {
+                                apkUrl = a.optString("browser_download_url", "")
+                                break
+                            }
                         }
                     }
                 }

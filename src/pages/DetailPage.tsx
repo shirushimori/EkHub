@@ -42,6 +42,26 @@ function isAnimeSource(d: unknown): boolean {
   return d != null && typeof d === "object" && "id" in d && typeof (d as { id: string }).id === "string" && (d as { id: string }).id.startsWith("jikan:");
 }
 
+/** Extract a short episode name from episode data: "Episode 3", "EP1 S1", "S02 E04", or falls back to title. */
+function episodeLabel(ep: import("@/types/scraper").EpisodeDownload): string {
+  const season = ep.season?.trim();
+  const episode = ep.episode?.trim();
+  const title = ep.title?.trim();
+
+  const sMatch = season ? season.match(/S\s*(\d+)/i) : null;
+  const eMatch = episode ? episode.match(/EPISODE\s+(\d+)/i) || episode.match(/E\s*(\d+)/i) : null;
+  const tMatch = title ? title.match(/Episode\s+(\d+)/i) : null;
+
+  const seasonNum = sMatch ? parseInt(sMatch[1], 10) : null;
+  const epNum = eMatch ? parseInt(eMatch[1], 10) : tMatch ? parseInt(tMatch[1], 10) : null;
+
+  if (seasonNum != null && epNum != null) return `S${seasonNum} E${epNum}`;
+  if (epNum != null) return `Episode ${epNum}`;
+  if (seasonNum != null) return `Season ${seasonNum}`;
+  if (title) return title;
+  return "Episode";
+}
+
 export default function DetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const { detail, detailSources, activeSource, loading, error, fetchDetail, switchSource } = useContentStore();
@@ -134,10 +154,32 @@ export default function DetailPage() {
   const movieDetail = isMovieDetail(d) ? d as MovieDetail : null;
   const downloads = d.downloads;
   const episodeDownloads = d.episodeDownloads;
-  const hasDownloads = !!downloads && downloads.length > 0;
   const episodeItems = (episodeDownloads || []).filter(
     (ep) => (ep.downloads && ep.downloads.length > 0) || (ep.watchLinks && ep.watchLinks.length > 0)
-  );
+  ).reduce<EpisodeDownload[]>((acc, ep) => {
+    const key = `${(ep.season || "").toLowerCase()}|${(ep.episode || "").toLowerCase()}|${episodeLabel(ep).toLowerCase()}`;
+    const existing = acc.find((e) =>
+      `${(e.season || "").toLowerCase()}|${(e.episode || "").toLowerCase()}|${episodeLabel(e).toLowerCase()}` === key
+    );
+    if (existing) {
+      const watchUrls = new Set((existing.watchLinks || []).map((l) => l.url));
+      existing.watchLinks = existing.watchLinks || [];
+      for (const l of ep.watchLinks || []) {
+        if (!watchUrls.has(l.url)) existing.watchLinks.push(l);
+      }
+      const dlUrls = new Set(existing.downloads.map((f) => f.links.map((l) => l.url)).flat());
+      for (const f of ep.downloads || []) {
+        const fresh = { ...f, links: f.links.filter((l) => !dlUrls.has(l.url)) };
+        if (fresh.links.length > 0) existing.downloads.push(fresh);
+      }
+      return acc;
+    }
+    acc.push(ep);
+    return acc;
+  }, []);
+  // Episodes already list their links in the Episodes section — don't repeat
+  // them in the separate Downloads panel (top/bottom duplication).
+  const hasDownloads = !!downloads && downloads.length > 0 && episodeItems.length === 0;
   const uniqueGenres = Array.from(new Set(d.genres));
   const screenshots = d.screenshots || [];
   const watchLinks = d.watchLinks || [];
@@ -715,45 +757,40 @@ function WatchSection({
               {episodeDownloads.length}
             </span>
           </div>
-          <div className="max-h-[calc(100dvh-6rem)] overflow-y-auto p-3">
-            <div className="flex flex-col gap-2">
-              {episodeDownloads.map((ep) => {
-                const watches = ep.watchLinks || [];
-                const files = ep.downloads || [];
-                return (
-                  <div
-                    key={`${ep.season}-${ep.episode}-${ep.title}`}
-                    className="flex flex-col gap-2 rounded-xl border border-border bg-surface/40 p-2.5"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      {ep.episode && (
-                        <span className="shrink-0 rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent">
-                          {ep.episode}
-                        </span>
-                      )}
-                      <span className="truncate text-[11px] font-medium leading-snug text-primary" title={ep.title}>
-                        {ep.title}
-                      </span>
-                    </div>
+          <div className="max-h-[calc(100dvh-6rem)] overflow-y-auto">
+            {episodeDownloads.map((ep) => {
+              const watches = ep.watchLinks || [];
+              const files = ep.downloads || [];
+              const label = episodeLabel(ep);
+              return (
+                <details
+                  key={`${ep.season}-${ep.episode}-${label}`}
+                  className="group border-b border-border/50 last:border-b-0"
+                >
+                  <summary className="flex cursor-pointer items-center gap-2 px-4 py-2.5 transition-colors hover:bg-surface/50">
+                    <span className="shrink-0 rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent">
+                      {label}
+                    </span>
+                    <span className="truncate text-xs font-medium text-primary" title={ep.title}>
+                      {ep.title && ep.title !== label ? ep.title : `Episode ${label}`}
+                    </span>
+                    <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[10px] text-secondary">
+                      {watches.length > 0 && <span>{watches.length} watch</span>}
+                      {files.length > 0 && <span>{files.length} dl</span>}
+                    </span>
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-secondary transition-transform group-open:rotate-180" />
+                  </summary>
 
+                  <div className="border-t border-border/50 bg-surface/30 px-4 pb-3 pt-2">
                     {watches.length > 0 && (
-                      <button
-                        onClick={() => onPlayWatchLink(watches[0])}
-                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-accent-hover"
-                      >
-                        <Play className="h-3.5 w-3.5 fill-white" />
-                        Watch {watches[0].label && watches[0].label !== "WATCH" ? watches[0].label : "Now"}
-                      </button>
-                    )}
-
-                    {watches.length > 1 && (
-                      <div className="flex flex-wrap gap-1">
-                        {watches.slice(1).map((link, k) => (
+                      <div className="mb-2 flex flex-wrap gap-1.5">
+                        {watches.map((link, k) => (
                           <button
                             key={k}
                             onClick={() => onPlayWatchLink(link)}
-                            className="rounded-md bg-white/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-white/20"
+                            className="inline-flex items-center gap-1 rounded-lg bg-accent px-2.5 py-1.5 text-[10px] font-semibold text-white transition-colors hover:bg-accent-hover"
                           >
+                            <Play className="h-3 w-3 fill-white" />
                             {link.label && link.label !== "WATCH" ? link.label : "Watch"}
                           </button>
                         ))}
@@ -806,9 +843,9 @@ function WatchSection({
                       <p className="text-[10px] text-secondary">No links available.</p>
                     )}
                   </div>
-                );
-              })}
-            </div>
+                </details>
+              );
+            })}
           </div>
         </div>
       )}
