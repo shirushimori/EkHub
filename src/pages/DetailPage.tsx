@@ -10,7 +10,7 @@ import type { DownloadLink, DownloadPack, EpisodeDownload } from "@/types/scrape
 import type { ScraperSource } from "@/types/scraper";
 import type { TmdbWatchRegion } from "@/types/movie";
 import { BookmarkButton } from "@/components/ui/BookmarkButton";
-import { setNativeDownloadContext } from "@/lib/native";
+import { setNativeDownloadContext, isNative } from "@/lib/native";
 import type { DownloadContext } from "@/lib/native";
 
 const HIANIME_BASE = "https://hianime.lol";
@@ -21,6 +21,17 @@ function notifyNativeDownload(item: MovieDetail | import("@/types/content").Cont
     type: item.type,
     ...extra,
   });
+}
+
+/** Download links hand off to the native shell's default browser; in a plain
+ *  browser they keep opening in a new tab. */
+function handleDownloadClick(
+  e: React.MouseEvent<HTMLAnchorElement>,
+  item: MovieDetail | import("@/types/content").ContentItem,
+  extra: Partial<DownloadContext>
+) {
+  notifyNativeDownload(item, extra);
+  if (isNative()) e.preventDefault();
 }
 
 function isMovieDetail(d: unknown): d is MovieDetail {
@@ -705,7 +716,7 @@ function WatchSection({
             </span>
           </div>
           <div className="max-h-[calc(100dvh-6rem)] overflow-y-auto p-3">
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="flex flex-col gap-2">
               {episodeDownloads.map((ep) => {
                 const watches = ep.watchLinks || [];
                 const files = ep.downloads || [];
@@ -773,8 +784,8 @@ function WatchSection({
                               href={link.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              onClick={() =>
-                                notifyNativeDownload(item, {
+                              onClick={(e) =>
+                                handleDownloadClick(e, item, {
                                   season: ep.season,
                                   episode: ep.episode,
                                   fileName: ep.title,
@@ -933,7 +944,7 @@ function PackItem({ item, dl }: { item: MovieDetail | import("@/types/content").
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => notifyNativeDownload(item, { season: dl.season, fileName: link.label, url: link.url })}
+              onClick={(e) => handleDownloadClick(e, item, { season: dl.season, fileName: link.label, url: link.url })}
               className="flex items-center justify-between rounded-lg bg-accent/10 px-3 py-2 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
             >
               <span className="truncate">{link.label}</span>

@@ -22,7 +22,6 @@ import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ProgressBar
-import android.widget.Toast
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
@@ -38,6 +37,8 @@ import org.json.JSONObject
  *   navigate; closing the top tab lands on the previous one).
  * - Everything not whitelisted is blocked — it never opens in the app and
  *   never opens in the external browser.
+ * - Download links from the web app are handed off to the default external
+ *   browser via the EkHubNative bridge.
  * - Home / Back / Forward toolbar controls the active tab.
  */
 class MainActivity : Activity() {
@@ -74,7 +75,6 @@ class MainActivity : Activity() {
     private lateinit var btnHome: ImageButton
     private lateinit var btnBack: ImageButton
     private lateinit var btnForward: ImageButton
-    private lateinit var btnDownloads: ImageButton
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,7 +86,6 @@ class MainActivity : Activity() {
         btnHome = findViewById(R.id.btn_home)
         btnBack = findViewById(R.id.btn_back)
         btnForward = findViewById(R.id.btn_forward)
-        btnDownloads = findViewById(R.id.btn_downloads)
 
         btnHome.setOnClickListener { activeTab()?.webView?.loadUrl(homeUrl) }
         btnBack.setOnClickListener {
@@ -97,7 +96,6 @@ class MainActivity : Activity() {
             val wv = activeTab()?.webView ?: return@setOnClickListener
             if (wv.canGoForward()) wv.goForward()
         }
-        btnDownloads.setOnClickListener { openDownloads() }
 
         loadWhitelist()
         AdBlocker.loadBundled(this)
@@ -254,36 +252,25 @@ class MainActivity : Activity() {
 
     // ── native bridge ────────────────────────────────────────────────────
 
-    /** Receives download context from the web app and queues it (prototype). */
+    /** Receives download context from the web app and opens the link in the
+     *  default external browser (the in-app download prototype is disabled). */
     private inner class EkHubNativeBridge {
         @JavascriptInterface
         fun setDownloadContext(json: String) {
             runCatching {
                 val o = JSONObject(json)
-                val entry = DownloadEntry(
-                    id = DownloadStore.newId(),
-                    title = o.optString("title", ""),
-                    type = o.optString("type", ""),
-                    season = o.optString("season", ""),
-                    episode = o.optString("episode", ""),
-                    fileName = o.optString("fileName", ""),
-                    url = o.optString("url", ""),
-                    addedAt = System.currentTimeMillis()
-                )
-                DownloadStore.add(this@MainActivity, entry)
-                runOnUiThread {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Added to downloads",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                val url = o.optString("url", "")
+                if (url.isNotEmpty()) {
+                    runOnUiThread {
+                        runCatching {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            startActivity(intent)
+                        }
+                    }
                 }
             }
         }
-    }
-
-    private fun openDownloads() {
-        startActivity(Intent(this, DownloadsActivity::class.java))
     }
 
     // ── whitelist ─────────────────────────────────────────────────────────

@@ -22,10 +22,6 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".DownloadsActivity"
-            android:exported="false" />
-
         <provider
             android:name=".ApkProvider"
             android:authorities="${applicationId}.apkprovider"
