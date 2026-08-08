@@ -56,7 +56,7 @@ class AppWindow:
         win = Gtk.Window()
         win.set_title("EkHub")
         win.set_default_size(1280, 820)
-        win.set_geometry_hints(win, min_width=960, min_height=600)
+        win.set_size_request(960, 600)
         win.set_border_width(0)
 
         settings = WebKit2.Settings()
@@ -178,7 +178,13 @@ def main():
         print(result["error"], file=sys.stderr)
         sys.exit(1)
 
-    open_app_window(result["url"], result["proc"])
+    try:
+        open_app_window(result["url"], result["proc"])
+    finally:
+        try:
+            result["proc"].terminate()
+        except Exception:  # noqa: BLE001
+            pass
 
 
 if __name__ == "__main__":
