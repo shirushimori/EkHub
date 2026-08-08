@@ -45,6 +45,8 @@ import org.json.JSONObject
  *   never opens in the external browser.
  * - Download links from the web app are handed off to the default external
  *   browser via the EkHubNative bridge.
+ * - A popout button opens the current page in the default browser; it shows
+ *   only when the active tab is on a non-EkHub, non-4khub4u host.
  * - Home / Back / Forward toolbar controls the active tab.
  */
 class MainActivity : Activity() {
@@ -83,6 +85,7 @@ class MainActivity : Activity() {
     private lateinit var btnBack: ImageButton
     private lateinit var btnForward: ImageButton
     private lateinit var btnReload: ImageButton
+    private lateinit var btnPopout: ImageButton
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -95,6 +98,7 @@ class MainActivity : Activity() {
         btnBack = findViewById(R.id.btn_back)
         btnForward = findViewById(R.id.btn_forward)
         btnReload = findViewById(R.id.btn_reload)
+        btnPopout = findViewById(R.id.btn_popout)
 
         btnHome.setOnClickListener { activeTab()?.webView?.loadUrl(homeUrl) }
         btnBack.setOnClickListener {
@@ -107,6 +111,9 @@ class MainActivity : Activity() {
         }
         btnReload.setOnClickListener {
             activeTab()?.webView?.reload()
+        }
+        btnPopout.setOnClickListener {
+            openCurrentPageInBrowser()
         }
 
         loadWhitelist()
@@ -564,6 +571,28 @@ class MainActivity : Activity() {
         return whitelist.any { host.contains(it) }
     }
 
+    /**
+     * Popout: opens the current page in the default external browser. The
+     * button only shows when the active tab is NOT on EkHub itself and NOT on
+     * the 4k hub streaming sites (hdhub4u / 4khdhub) — i.e. when the user is
+     * on a third-party host (hubcloud, player, etc.) and might want to leave.
+     */
+    private fun openCurrentPageInBrowser() {
+        val url = activeTab()?.webView?.url ?: return
+        runCatching {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+        }
+    }
+
+    private fun shouldShowPopout(host: String?): Boolean {
+        val h = host?.lowercase() ?: return false
+        if (h.contains(appHost)) return false
+        if (h.contains("hdhub4u") || h.contains("4khdhub")) return false
+        return true
+    }
+
     /** target=_blank / window.open: whitelisted opens a new tab, else blocked. */
     private fun handleNewWindow(resultMsg: Message): Boolean {
         val transport = resultMsg.obj as? WebView.WebViewTransport ?: return false
@@ -595,6 +624,9 @@ class MainActivity : Activity() {
         btnBack.alpha = if (canBack) 1f else 0.3f
         btnForward.isEnabled = canForward
         btnForward.alpha = if (canForward) 1f else 0.3f
+
+        val host = wv?.url?.let { Uri.parse(it).host }
+        btnPopout.visibility = if (shouldShowPopout(host)) View.VISIBLE else View.GONE
     }
 
     @Deprecated("Deprecated in Java")

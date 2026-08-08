@@ -62,6 +62,81 @@ function episodeLabel(ep: import("@/types/scraper").EpisodeDownload): string {
   return "Episode";
 }
 
+const RAW_EXT_RE = /\.(mkv|mp4|avi|m4v|webm|ts|flv|mpg|mov)$/i;
+
+/** True when a label looks like a raw scene release filename we should prettify. */
+function isRawFileName(label: string): boolean {
+  const t = label.trim();
+  if (!t || RAW_EXT_RE.test(t)) return true;
+  const dots = t.split(".").length - 1;
+  return dots >= 3;
+}
+
+const QUALITY_RE = /\b(2160p|4k|1080p|720p|480p|SD|HDR|DoVi)\b/i;
+const SEASON_RE = /\bS\s?(\d{1,2})\b/i;
+const EPISODE_RE_FULL = /\bE\s?(\d{1,3})\b/i;
+const LANG_TOKENS: { re: RegExp; label: string }[] = [
+  { re: /\bMULTI\b/i, label: "Multi Dub" },
+  { re: /\bDUAL\b/i, label: "Multi Dub" },
+  { re: /\bENGLISH\b/i, label: "English" },
+  { re: /\bHINDI\b/i, label: "Hindi" },
+  { re: /\bTAMIL\b/i, label: "Tamil" },
+  { re: /\bTELUGU\b/i, label: "Telugu" },
+  { re: /\bKOREAN\b/i, label: "Korean" },
+  { re: /\bJAPANESE\b/i, label: "Japanese" },
+  { re: /\bFRENCH\b/i, label: "French" },
+  { re: /\bSPANISH\b/i, label: "Spanish" },
+  { re: /\bPUNJABI\b/i, label: "Punjabi" },
+  { re: /\bBENGALI\b/i, label: "Bengali" },
+];
+const SOURCE_RE = /\b(WEB-?DL|BluRay|WEBRip|HDRip|BRRip|REMUX|HDTV|CAM|TS)\b/i;
+const CODEC_RE = /\b(H\.?265|HEVC|x265|H\.?264|x264|AV1|AVC|AAC2\.0|DD5\.?1|DDP5\.?1)\b/i;
+
+const SOURCE_PRETTY: Record<string, string> = {
+  "WEB-DL": "WEB-DL",
+  WEBDL: "WEB-DL",
+  BluRay: "BluRay",
+  WEBRip: "WEBRip",
+  HDRip: "HDRip",
+  BRRip: "BRRip",
+  REMUX: "REMUX",
+  HDTV: "HDTV",
+  CAM: "CAM",
+  TS: "TS",
+};
+
+function prettySource(token: string): string {
+  return SOURCE_PRETTY[token] ?? token;
+}
+
+/**
+ * Turns a raw release filename like
+ *   "Tomb.Raider.King.S01E02.Those.Who.Seek.to.Own.Relics.1080p.CR.WEB-DL.DUAL.AAC2.0.H.264-4kHdHub.Com.mkv"
+ * into a clean label like "Episode 2 | Season 1 | 1080p | Multi Dub | WEB-DL".
+ * Falls back to the original label when nothing is parseable.
+ */
+function prettifyFileName(label: string): string {
+  if (!isRawFileName(label)) return label.trim();
+  const s = label.trim();
+
+  const sMatch = s.match(SEASON_RE);
+  const eMatch = s.match(EPISODE_RE_FULL);
+  const qMatch = s.match(QUALITY_RE);
+  const langMatch = LANG_TOKENS.find(({ re }) => re.test(s));
+  const srcMatch = s.match(SOURCE_RE);
+  const codecMatch = s.match(CODEC_RE);
+
+  const parts: string[] = [];
+  if (eMatch) parts.push(`Episode ${parseInt(eMatch[1], 10)}`);
+  if (sMatch) parts.push(`Season ${parseInt(sMatch[1], 10)}`);
+  if (qMatch) parts.push(qMatch[1].toLowerCase() === "4k" ? "4K" : qMatch[1].toLowerCase());
+  if (langMatch) parts.push(langMatch.label);
+  if (srcMatch) parts.push(prettySource(srcMatch[1]));
+  if (codecMatch) parts.push(codecMatch[1].toUpperCase());
+
+  return parts.length > 0 ? parts.join(" | ") : label.trim();
+}
+
 export default function DetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const { detail, detailSources, activeSource, loading, error, fetchDetail, switchSource } = useContentStore();
@@ -557,7 +632,7 @@ export default function DetailPage() {
 
           {/* Description */}
           {d.description && (
-            <CollapsibleSection title="Description" defaultOpen>
+            <CollapsibleSection title="Description" defaultOpen collapsible>
               <p className="mb-6 text-sm leading-relaxed text-secondary select-auto">
                 {d.description}
               </p>
@@ -566,7 +641,7 @@ export default function DetailPage() {
 
           {/* Cast */}
           {movieDetail && movieDetail.cast.length > 0 && (
-            <CollapsibleSection title="Cast">
+            <CollapsibleSection title="Cast" collapsible>
               <p className="mb-6 text-sm text-secondary select-auto">
                 {movieDetail.cast.map((c) => c.name).join(", ")}
               </p>
@@ -590,7 +665,7 @@ export default function DetailPage() {
 
           {/* Screenshots */}
           {screenshots.length > 0 && (
-            <CollapsibleSection title="Screenshots">
+            <CollapsibleSection title="Screenshots" collapsible>
               <div className="mb-6 group relative">
                 <div
                   ref={scrollContainerRef}
@@ -640,7 +715,7 @@ export default function DetailPage() {
 
           {/* Storyline */}
           {storyline && (
-            <CollapsibleSection title="Storyline">
+            <CollapsibleSection title="Storyline" collapsible>
               <p className="mb-6 text-sm leading-relaxed text-secondary select-auto">
                 {storyline}
               </p>
@@ -649,7 +724,7 @@ export default function DetailPage() {
 
           {/* Review */}
           {review && (
-            <CollapsibleSection title="Review">
+            <CollapsibleSection title="Review" collapsible>
               <p className="mb-6 text-sm leading-relaxed text-secondary select-auto">
                 {review}
               </p>
@@ -831,7 +906,7 @@ function WatchSection({
                               }
                               className="inline-flex items-center gap-1 rounded-lg bg-accent/10 px-2 py-1 text-[10px] font-medium text-accent transition-colors hover:bg-accent/20"
                             >
-                              {link.label}
+                              {prettifyFileName(link.label)}
                               <ExternalLink className="h-2.5 w-2.5 shrink-0" />
                             </a>
                           ))}
@@ -945,7 +1020,7 @@ function PackItem({ item, dl }: { item: MovieDetail | import("@/types/content").
     <details className="group border-b border-border">
       <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 transition-colors hover:bg-surface/50">
         <span className="flex-1 text-xs font-medium leading-snug">
-          {dl.title}
+          {prettifyFileName(dl.title)}
         </span>
         <ChevronDown className="h-3.5 w-3.5 shrink-0 text-secondary transition-transform group-open:rotate-180" />
       </summary>
@@ -984,7 +1059,7 @@ function PackItem({ item, dl }: { item: MovieDetail | import("@/types/content").
               onClick={(e) => handleDownloadClick(e, item, { season: dl.season, fileName: link.label, url: link.url })}
               className="flex items-center justify-between rounded-lg bg-accent/10 px-3 py-2 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
             >
-              <span className="truncate">{link.label}</span>
+              <span className="truncate">{prettifyFileName(link.label)}</span>
               <ExternalLink className="ml-2 h-3 w-3 shrink-0" />
             </a>
           ))}

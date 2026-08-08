@@ -70,5 +70,15 @@
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/reload"
             android:src="@drawable/ic_reload" />
+
+        <ImageButton
+            android:id="@+id/btn_popout"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:padding="12dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/popout"
+            android:src="@drawable/ic_popout"
+            android:visibility="gone" />
     </LinearLayout>
 </LinearLayout>
