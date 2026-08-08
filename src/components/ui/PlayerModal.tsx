@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { X, Maximize2, Minimize2, Loader2 } from "lucide-react";
 
+interface EkHubNative {
+  toggleFullscreen?: () => void;
+  exitFullscreen?: () => void;
+}
+
+declare global {
+  interface Window {
+    EkHubNative?: EkHubNative;
+  }
+}
+
 interface PlayerModalProps {
   src: string;
   title?: string;
@@ -10,15 +21,21 @@ interface PlayerModalProps {
 }
 
 /**
- * Fullscreen-capable player overlay used by the embedded player and the
- * watch-link players. Requests fullscreen on the player container itself so
- * cross-origin iframes never need permission to enter fullscreen.
+ * Player overlay used by the embedded player and the watch-link players.
+ *
+ * Fullscreen:
+ * - In the Android app (`window.EkHubNative`) a native bridge toggles a real
+ *   fullscreen view — DOM fullscreen is unreliable in WebView.
+ * - In the browser the player container itself is put in fullscreen so
+ *   cross-origin iframes never need permission to enter fullscreen.
  */
 export function PlayerModal({ src, title, loading, onLoad, onClose }: PlayerModalProps) {
   const playerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const native = typeof window !== "undefined" ? window.EkHubNative : undefined;
 
   useEffect(() => {
+    if (native) return;
     const onChange = () => {
       setIsFullscreen(
         document.fullscreenElement === playerRef.current ||
@@ -27,14 +44,19 @@ export function PlayerModal({ src, title, loading, onLoad, onClose }: PlayerModa
     };
     document.addEventListener("fullscreenchange", onChange);
     return () => document.removeEventListener("fullscreenchange", onChange);
-  }, []);
+  }, [native]);
 
-  const toggleFullscreen = async () => {
+  const toggleFullscreen = () => {
+    if (native) {
+      native.toggleFullscreen?.();
+      setIsFullscreen((f) => !f);
+      return;
+    }
     try {
       if (document.fullscreenElement) {
-        await document.exitFullscreen();
+        document.exitFullscreen();
       } else if (playerRef.current) {
-        await playerRef.current.requestFullscreen();
+        playerRef.current.requestFullscreen();
       }
     } catch {
       // Fullscreen unsupported or denied (e.g. sandboxed embed) — ignore.
@@ -42,7 +64,9 @@ export function PlayerModal({ src, title, loading, onLoad, onClose }: PlayerModa
   };
 
   const handleClose = () => {
-    if (document.fullscreenElement) {
+    if (native) {
+      if (isFullscreen) native.exitFullscreen?.();
+    } else if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});
     }
     onClose();
@@ -73,10 +97,15 @@ export function PlayerModal({ src, title, loading, onLoad, onClose }: PlayerModa
         </div>
         <div ref={playerRef} className="relative aspect-video overflow-hidden rounded-xl bg-black shadow-2xl">
           {loading && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black">
-              <Loader2 className="h-8 w-8 animate-spin text-accent" />
-              <span className="text-xs text-secondary">Loading player…</span>
-            </div>
+            <>
+              <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-center gap-2 bg-black/80 px-3 py-1.5 text-xs font-semibold text-white/90">
+                Wait Let it load
+              </div>
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black">
+                <Loader2 className="h-8 w-8 animate-spin text-accent" />
+                <span className="text-xs text-secondary">Loading player…</span>
+              </div>
+            </>
           )}
           <iframe
             src={src}

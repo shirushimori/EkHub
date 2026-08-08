@@ -270,13 +270,9 @@
     </main>
 
     <script>
-      // App download URLs — these artifacts are built by the "Build native apps" CI on tag push.
+      // App download URLs — this artifact is built by the "Build native apps" CI on tag push.
       var APPS = {
         android: { label: "Install for Android", url: "https://github.com/shirushimori/EkHub/releases/latest/download/app-release.apk" },
-        ios: { label: "Install for iPhone/iPad", url: "https://github.com/shirushimori/EkHub/releases/latest/download/EkHub.ipa" },
-        windows: { label: "Install for Windows", url: "https://github.com/shirushimori/EkHub/releases/latest/download/EkHub.exe" },
-        macos: { label: "Install for macOS", url: "https://github.com/shirushimori/EkHub/releases/latest/download/EkHub.dmg" },
-        linux: { label: "Install for Linux", url: "https://github.com/shirushimori/EkHub/releases/latest/download/EkHub.run" },
         other: { label: "Get the App", url: "https://github.com/shirushimori/EkHub/releases" }
       };
 
@@ -290,12 +286,6 @@
         var ua = navigator.userAgent || "";
         var isAndroid = /Android/i.test(ua);
         var key = isAndroid ? "android" : "other";
-        if (!isAndroid) {
-          if (/iPhone|iPad|iPod/i.test(ua)) key = "ios";
-          else if (/Windows/i.test(ua)) key = "windows";
-          else if (/Mac/i.test(ua)) key = "macos";
-          else if (/Linux/i.test(ua)) key = "linux";
-        }
 
         var app = APPS[key];
         var btn = document.getElementById("install-btn");
@@ -322,7 +312,7 @@
         if (hint) {
           hint.textContent = isAndroid
             ? "EkHub is available as a native Android app — tap below to download the APK."
-            : "Available for " + key.charAt(0).toUpperCase() + key.slice(1) + ". Choose install or continue on the web.";
+            : "The native app is available for Android. Continue on the web, or grab the APK from GitHub.";
         }
       })();
     </script>

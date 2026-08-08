@@ -77,6 +77,15 @@ class MainActivity : Activity() {
 
     private class Tab(val webView: WebView)
 
+    // Ad blocking only kicks in while viewing a video player page.
+    private val videoPlayerHosts = listOf(
+        "player.videasy.net",
+        "player.autoembed.cc",
+        "hubstream",
+        "hdstream4u",
+        "player."
+    )
+
     private val tabs = ArrayList<Tab>()
     private var activeIndex = -1
     private val whitelist = HashSet<String>()
@@ -92,6 +101,8 @@ class MainActivity : Activity() {
 
     private var customView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
+    private var fullscreenWebView: WebView? = null
+    private var adblockRefreshed = false
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -125,7 +136,6 @@ class MainActivity : Activity() {
 
         loadWhitelist()
         AdBlocker.loadBundled(this)
-        AdBlocker.refresh(this)
         registerInstallReceiver()
         addTab(homeUrl)
         checkForUpdate()
@@ -240,18 +250,25 @@ class MainActivity : Activity() {
             }
 
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                // Ad blocking is scoped to video player pages only.
+                if (!adsActive(view.url) && !adsActive(request.url.toString())) return null
                 return if (AdBlocker.isBlocked(request.url)) AdBlocker.emptyResponse() else null
             }
 
             @Deprecated("Deprecated in Java")
             override fun shouldInterceptRequest(view: WebView, url: String): WebResourceResponse? {
                 val uri = Uri.parse(url)
+                if (!adsActive(view.url) && !adsActive(uri.toString())) return null
                 return if (AdBlocker.isBlocked(uri)) AdBlocker.emptyResponse() else null
             }
 
             override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
                 progress.visibility = View.VISIBLE
                 updateToolbar()
+                if (!adblockRefreshed && url != null && isVideoPlayerHost(Uri.parse(url).host)) {
+                    adblockRefreshed = true
+                    AdBlocker.refresh(this@MainActivity)
+                }
             }
 
             override fun onPageFinished(view: WebView, url: String?) {
@@ -313,13 +330,28 @@ class MainActivity : Activity() {
                 }
             }
         }
+
+        /** Toggled by the web player's fullscreen button — DOM fullscreen is
+         *  unreliable in WebView, so the whole webview is shown natively. */
+        @JavascriptInterface
+        fun toggleFullscreen() {
+            runOnUiThread {
+                if (isCustomViewShowing()) hideCustomView() else showWebViewFullscreen()
+            }
+        }
+
+        @JavascriptInterface
+        fun exitFullscreen() {
+            runOnUiThread { hideCustomView() }
+        }
     }
 
     // ── fullscreen (custom view) ─────────────────────────────────────────
 
     private fun isCustomViewShowing(): Boolean = customView != null
 
-    /** Called when the page requests fullscreen (e.g. the player popup button). */
+    /** Called when the page requests fullscreen on an element (e.g. the
+     *  embedded player's own HTML5 video fullscreen button). */
     private fun showCustomView(view: View, callback: WebChromeClient.CustomViewCallback) {
         if (isCustomViewShowing()) {
             callback.onCustomViewHidden()
@@ -327,6 +359,7 @@ class MainActivity : Activity() {
         }
         customView = view
         customViewCallback = callback
+        fullscreenWebView = null
         activeTab()?.webView?.let { wv ->
             if (wv.parent != null) webContainer.removeView(wv)
         }
@@ -340,19 +373,45 @@ class MainActivity : Activity() {
         hideSystemUI()
     }
 
+    /** Fullscreens the active webview itself — used by the bridge-driven
+     *  player button so it works regardless of WebView's DOM-fullscreen support. */
+    private fun showWebViewFullscreen() {
+        val wv = activeTab()?.webView ?: return
+        if (isCustomViewShowing()) return
+        val holder = FrameLayout(this)
+        holder.setBackgroundColor(0xFF000000.toInt())
+        (wv.parent as? ViewGroup)?.removeView(wv)
+        holder.addView(
+            wv,
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
+        customView = holder
+        customViewCallback = null
+        fullscreenWebView = wv
+        webContainer.addView(
+            holder,
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
+        toolbar.visibility = View.GONE
+        progress.visibility = View.GONE
+        hideSystemUI()
+    }
+
     private fun hideCustomView() {
         val view = customView ?: return
         customView = null
         customViewCallback?.onCustomViewHidden()
         customViewCallback = null
+        val owned = fullscreenWebView
+        fullscreenWebView = null
         webContainer.removeView(view)
         toolbar.visibility = View.VISIBLE
         showSystemUI()
-        activeTab()?.webView?.let { wv ->
-            if (wv.parent == null) {
-                webContainer.addView(wv, 0)
-                wv.requestFocus()
-            }
+        val wv = owned ?: activeTab()?.webView
+        wv?.let {
+            if (it.parent != null) (it.parent as? ViewGroup)?.removeView(it)
+            if (it.parent == null) webContainer.addView(it, 0)
+            it.requestFocus()
         }
     }
 
@@ -645,6 +704,16 @@ class MainActivity : Activity() {
         val host = uri.host?.lowercase() ?: return false
         return whitelist.any { host.contains(it) }
     }
+
+    /** Video player hosts (embedded players, streaming mirrors). Ad blocking
+     *  is limited to these — everything else loads untouched. */
+    private fun isVideoPlayerHost(host: String?): Boolean {
+        val h = host?.lowercase() ?: return false
+        return videoPlayerHosts.any { h.contains(it) }
+    }
+
+    private fun adsActive(pageUrl: String?): Boolean =
+        pageUrl?.let { isVideoPlayerHost(Uri.parse(it).host) } == true
 
     /**
      * Popout: opens the current page in the default external browser. The

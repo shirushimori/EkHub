@@ -1,65 +1,37 @@
-# Native apps
+# Android app
 
-The desktop apps (Windows/Linux) are **self-hosting**: on launch they ensure a
-Node.js runtime, fetch the EkHub source, `npm run build` it, and serve `dist/`
-on localhost, then open it in a webview window. The Android app is a WebView
-shell around the hosted app (`https://ekhub.vercel.app/app`) with ad blocking,
-a download manager, a download-complete banner, and a built-in video player.
+The Android app is a zero-AndroidX WebView shell around the hosted web app
+(`https://ekhub.vercel.app/app`) with:
 
-All three are built automatically by `.github/workflows/build-native.yml`
-when you push a tag (`git tag v1.0 && git push origin v1.0`) and attached to
-the GitHub Release. The lander at `/` links to those artifacts.
+- **Whitelist-driven navigation** — only hosts listed in `whitelist.txt`
+  (repo root, refreshed from `githubusercontent.com`) load in-app; everything
+  else is blocked (never the external browser).
+- **Ad blocking on video players** — the ad/tracker host list is applied only
+  while a video player page is open (`player.videasy.net`,
+  `player.autoembed.cc`, `hubstream`, `hdstream4u`, `player.*`). Host lists
+  load lazily the first time a player is opened.
+- **Fullscreen player** — the web player's fullscreen button drives a native
+  bridge (`EkHubNative.toggleFullscreen`) that shows a real fullscreen view;
+  the embedded player's own HTML5 fullscreen also works via
+  `WebChromeClient.onShowCustomView`.
+- **In-app update checker** — prompts, downloads, validates, and installs new
+  APKs via the PackageInstaller API.
+- **Popout button** — opens the current third-party page in the default
+  browser.
 
-## Build locally
-
-### Linux — `EkHub.run` (self-extracting installer)
-
-```bash
-bash native/linux/build-run.sh
-# → dist/EkHub.run
-```
-
-Installs to `~/.local/share/ekhub`, adds an app-menu entry, and launches a
-status window that bootstraps the app (Node.js, source, build, localhost),
-then opens a **WebKit2GTK** window (falls back to the default browser if
-WebKit2GTK isn't available). The HTML5 Fullscreen API is enabled, so the
-player's fullscreen button works natively.
-
-### Windows — `EkHub.exe` (pywebview + PyInstaller)
-
-Run `native/windows/build_exe.ps1` on a Windows machine (needs Python 3.12).
-Requires the Edge WebView2 runtime (preinstalled on Windows 10/11). First
-launch downloads Node.js and builds the app; subsequent launches are fast.
-
-## Self-hosting details (shared `native/bootstrap.py`)
-
-- **Node.js** — uses one already on `PATH`, else downloads a private copy
-  (`nodejs.org/dist`) into the per-user data dir (`%APPDATA%\EkHub` /
-  `~/.local/share/ekhub`).
-- **Source** — `git clone` when git exists, otherwise a codeload tarball of
-  `main`; updates itself with `git pull` on re-launch.
-- **Build** — `npm ci`/`npm install` once, then `vite build` → `dist/`.
-- **Server** — `node server.mjs` serves `dist/` and proxies the `/api/*`
-  endpoints (tmdb / scraper / hd4u / hianime) exactly like the Vercel Python
-  lambdas. Set `TMDB_API_KEY` for TMDB data; port via `EKHUB_PORT`.
-
-### Android — `EkHub.apk` (WebView shell)
+## Build
 
 ```bash
-bash native/android/build-apk.sh
-# → dist/EkHub.apk
+bash native/android/build-apk.sh   # → dist/EkHub.apk
 ```
 
 (or `cd native/android && gradle assembleRelease -PversionName=1.0 -PversionCode=1`
 on a machine with the Android SDK + JDK 17 + Gradle 8.9 — outputs
 `app/build/outputs/apk/release/app-release.apk`).
 
-Zero AndroidX dependencies — plain framework WebView — so the APK stays tiny
-and runs fine on low-end devices. The app loads `ekhub.vercel.app/app` in a
-minimal WebView; hosts on the whitelist (`whitelist.txt` in the repo root,
-`githubusercontent.com`) load in-app and open new tabs, while everything else
-is blocked — never the external browser, and the back button navigates back
-within the app.
+Built automatically by `.github/workflows/build-native.yml` when you push a
+tag (`git tag v1.0 && git push origin v1.0`) and attached to the GitHub
+Release.
 
 **Signing:** the release build signs with the debug keystore by default so
 every build is installable. For a real release key, create
@@ -72,5 +44,5 @@ keyAlias=...
 keyPassword=...
 ```
 
-(recommended: keep `keystore.properties` + keystore out of the repo, e.g. as
-GitHub Actions secrets injected in CI).
+(keep `keystore.properties` + keystore out of the repo; pass them to CI as
+secrets instead).

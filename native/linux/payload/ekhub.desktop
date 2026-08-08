@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=EkHub
-Comment=Movie, Series & Anime link indexer
-Exec=@BIN@
-Icon=@ICON@
-Terminal=false
-Categories=AudioVideo;Network;
-StartupNotify=true
